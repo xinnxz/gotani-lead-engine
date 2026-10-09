@@ -1,0 +1,112 @@
+"""Akses database SQLite."""
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+import sqlite3
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from .config import settings
+
+SCHEMA_PATH = Path(__file__).with_name("schema.sql")
+
+
+def now_iso() -> str:
+    """Waktu sekarang (zona waktu lokal) dalam format ISO."""
+    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+
+
+def connect(path: str | Path | None = None) -> sqlite3.Connection:
+    conn = sqlite3.connect(str(path or settings.db_path), timeout=30, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")  # baca & tulis bisa jalan bersamaan
+    conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+    return conn
+
+
+def log_event(conn: sqlite3.Connection, message: str, level: str = "info", campaign_id: str | None = None) -> None:
+    conn.execute(
+        "INSERT INTO events (ts, level, campaign_id, message) VALUES (?, ?, ?, ?)",
+        (now_iso(), level, campaign_id, message),
+    )
+    conn.commit()
+    print(f"[{level.upper()}] {message}", flush=True)
+
+
+def content_hash(text: str) -> str:
+    """Hash teks yang sudah dinormalisasi; repost identik dianggap item yang sama."""
+    norm = re.sub(r"\s+", " ", text.lower()).strip()
+    return hashlib.sha1(norm.encode("utf-8")).hexdigest()
+
+
+def save_raw_item(
+    conn: sqlite3.Connection,
+    campaign_id: str,
+    platform: str,
+    raw_text: str,
+    *,
+    url: str | None = None,
+    posted_at: str | None = None,
+    author_name: str | None = None,
+    author_url: str | None = None,
+    source_id: int | None = None,
+    run_id: int | None = None,
+) -> bool:
+    """Simpan item mentah. Return False kalau teks yang sama sudah ada."""
+    raw_text = (raw_text or "").strip()
+    if len(raw_text) < 15:
+        return False
+    cur = conn.execute(
+        """INSERT OR IGNORE INTO raw_items
+           (run_id, campaign_id, source_id, platform, url, fetched_at, posted_at,
+            author_name, author_url, raw_text, content_hash)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (run_id, campaign_id, source_id, platform, url, now_iso(), posted_at,
+         author_name, author_url, raw_text, content_hash(raw_text)),
+    )
+    conn.commit()
+    return cur.rowcount > 0
+
+
+def start_run(conn: sqlite3.Connection, campaign_id: str | None, kind: str,
+              platform: str | None = None, account: str | None = None) -> int:
+    cur = conn.execute(
+        "INSERT INTO runs (campaign_id, kind, platform, account, started_at) VALUES (?, ?, ?, ?, ?)",
+        (campaign_id, kind, platform, account, now_iso()),
+    )
+    conn.commit()
+    return int(cur.lastrowid)
+
+
+def finish_run(conn: sqlite3.Connection, run_id: int, status: str, items: int = 0, error: str | None = None) -> None:
+    conn.execute(
+        "UPDATE runs SET finished_at=?, status=?, items_found=?, error=? WHERE id=?",
+        (now_iso(), status, items, error, run_id),
+    )
+    conn.commit()
+
+
+def add_handoff(conn: sqlite3.Connection, kind: str, detail: str, *, url: str | None = None,
+                platform: str | None = None, account: str | None = None, campaign_id: str | None = None) -> None:
+    conn.execute(
+        "INSERT INTO handoffs (ts, campaign_id, platform, account, kind, detail, url) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (now_iso(), campaign_id, platform, account, kind, detail, url),
+    )
+    conn.commit()
+    log_event(conn, f"HANDOFF ({kind}): {detail} {url or ''}", "warning", campaign_id)
+
+
+def dumps(obj: Any) -> str:
+    return json.dumps(obj, ensure_ascii=False)
+
+
+def loads(text: str | None, default: Any = None) -> Any:
+    if not text:
+        return default
+    try:
+        return json.loads(text)
+    except (TypeError, ValueError):
+        return default

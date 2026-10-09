@@ -1,0 +1,7 @@
+2026/10/10-01:57:21.948 1aaa0 Reusing MANIFEST E:\DATA\Ngoding\gotani_lead_agent\chrome_data\Default\Local Storage\leveldb/MANIFEST-000001
+2026/10/10-01:57:21.950 1aaa0 Recovering log #6
+2026/10/10-01:57:21.950 1aaa0 Level-0 table #9: started
+2026/10/10-01:57:21.957 1aaa0 Level-0 table #9: 17262 bytes OK
+2026/10/10-01:57:21.960 1aaa0 Recovering log #8
+2026/10/10-01:57:21.962 1aaa0 Reusing old log E:\DATA\Ngoding\gotani_lead_agent\chrome_data\Default\Local Storage\leveldb/000008.log 
+2026/10/10-01:57:21.977 1aaa0 Delete type=0 #6
