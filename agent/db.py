@@ -110,3 +110,13 @@ def loads(text: str | None, default: Any = None) -> Any:
         return json.loads(text)
     except (TypeError, ValueError):
         return default
+
+
+def update_review_status(conn: sqlite3.Connection, listing_id: int, status: str, note: str | None = None) -> bool:
+    """Memperbarui status review listing (pending, approved, rejected) dan mencatat waktu review."""
+    cur = conn.execute(
+        "UPDATE listings SET review_status=?, review_note=?, reviewed_at=? WHERE id=?",
+        (status, note, now_iso(), listing_id),
+    )
+    conn.commit()
+    return cur.rowcount > 0

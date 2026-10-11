@@ -179,13 +179,15 @@ tab1, tab2, tab3 = st.tabs(["Verified Leads", "Raw Data Log", "Campaign History"
 
 with tab1:
     # Filter controls
-    fc1, fc2 = st.columns(2)
+    fc1, fc2, fc3 = st.columns([1.5, 1.5, 1.2])
     with fc1:
         min_rel = st.slider("Batas Minimum Relevansi", 0, 100, 0, 5)
     with fc2:
         min_conf = st.slider("Batas Minimum Confidence", 0, 100, 0, 5)
+    with fc3:
+        status_filter = st.selectbox("Status Verifikasi", ["Semua", "pending", "approved", "rejected"], index=0)
 
-    df_leads = pd.read_sql_query("""
+    query_str = """
         SELECT
             l.id,
             l.intent AS Intent,
@@ -204,16 +206,21 @@ with tab1:
         FROM listings l
         JOIN raw_items r ON l.raw_item_id = r.id
         WHERE l.relevance >= ? AND l.confidence >= ?
-        ORDER BY l.relevance DESC, l.confidence DESC
-    """, conn, params=(min_rel, min_conf))
+    """
+    params = [min_rel, min_conf]
+    if status_filter != "Semua":
+        query_str += " AND l.review_status = ?"
+        params.append(status_filter)
+    query_str += " ORDER BY l.relevance DESC, l.confidence DESC"
+
+    df_leads = pd.read_sql_query(query_str, conn, params=tuple(params))
 
     if df_leads.empty:
-        st.info("Belum ada data prospek. Silakan muat data atau jalankan kampanye baru.")
+        st.info("Belum ada data prospek yang sesuai filter. Silakan muat data atau jalankan kampanye baru.")
     else:
         # Proses pembuatan Link WA otomatis dari nomor HP
         def make_wa_link(phone):
             if not phone: return None
-            # Ambil nomor pertama jika ada banyak
             p = str(phone).split(',')[0].strip().replace(" ", "").replace("-", "")
             if p.startswith("08"):
                 return f"https://wa.me/62{p[1:]}"
@@ -241,18 +248,22 @@ with tab1:
                 
         df_leads["Kualitas"] = df_leads["Atribut"].apply(extract_variety)
 
-        csv_leads = df_leads.drop(columns=["id", "Alasan_Skor", "Atribut"], errors="ignore").to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "Unduh Data (CSV)", csv_leads,
-            file_name=f"verified_leads_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-            mime="text/csv",
-        )
+        # Header aksi unduh & reviewer
+        top_c1, top_c2 = st.columns([1, 3])
+        with top_c1:
+            csv_leads = df_leads.drop(columns=["Alasan_Skor", "Atribut"], errors="ignore").to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "Unduh Data (CSV)", csv_leads,
+                file_name=f"verified_leads_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv",
+            )
 
         st.dataframe(
-            df_leads.drop(columns=["id", "Alasan_Skor", "Atribut"], errors="ignore"),
+            df_leads.drop(columns=["Alasan_Skor", "Atribut"], errors="ignore"),
             use_container_width=True,
             hide_index=True,
             column_config={
+                "id": st.column_config.NumberColumn("ID", width="small"),
                 "Intent": st.column_config.TextColumn("Kategori", width="small"),
                 "Komoditas": st.column_config.TextColumn("Komoditas", width="small"),
                 "Kualitas": st.column_config.TextColumn("Kualitas/Varietas", width="medium"),
@@ -269,12 +280,38 @@ with tab1:
             },
         )
 
+        # --- Modul Aksi Reviewer (Human-in-the-Loop) ---
+        with st.expander("🛠️ Panel Verifikasi Reviewer (Approve / Reject)", expanded=True):
+            st.caption("Verifikasi keaslian prospek sebelum diteruskan ke tim Sales (PRD §3.3 & §7.5)")
+            rev_col1, rev_col2, rev_col3 = st.columns([1.5, 2, 2])
+            
+            with rev_col1:
+                selectable_ids = df_leads["id"].tolist()
+                target_id = st.selectbox("Pilih ID Lead", selectable_ids, help="ID prospek yang ingin Anda verifikasi")
+            
+            with rev_col2:
+                review_note = st.text_input("Catatan Reviewer (Opsional)", placeholder="misal: Nomor valid, petani ramah")
+            
+            with rev_col3:
+                st.write("") # Spacer
+                btn_c1, btn_c2 = st.columns(2)
+                with btn_c1:
+                    if st.button("✅ Approve", help="Setujui lead ini sebagai data terverifikasi"):
+                        db.update_review_status(conn, target_id, "approved", review_note)
+                        st.success(f"Lead #{target_id} disetujui (Approved)!")
+                        st.rerun()
+                with btn_c2:
+                    if st.button("❌ Reject", help="Tolak lead ini jika spam, calo, atau tidak valid"):
+                        db.update_review_status(conn, target_id, "rejected", review_note)
+                        st.warning(f"Lead #{target_id} ditolak (Rejected)!")
+                        st.rerun()
+
         # Score breakdown expander
         with st.expander("Rincian Kalkulasi Skor"):
             for _, row in df_leads.iterrows():
                 reasons = json.loads(row["Alasan_Skor"]) if row["Alasan_Skor"] else {}
                 if reasons:
-                    st.markdown(f"**Data #{row['id']}** | {row['Komoditas']} ({row['Lokasi']})")
+                    st.markdown(f"**Data #{row['id']}** | {row['Komoditas']} ({row['Lokasi']}) | Status: `{row['Review']}`")
                     col_r, col_c = st.columns(2)
                     with col_r:
                         st.markdown("**Komponen Relevansi:**")
