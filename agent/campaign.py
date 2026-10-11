@@ -189,9 +189,13 @@ Balas HANYA JSON dengan kunci: "spec" dan "questions".
 - "spec" mengikuti skema: goal (find_supply|find_demand|find_customers), business_context, target_entity,
   product{name, attributes{variety[], grade}, synonyms[]}, location{include[], exclude[], priority[]},
   volume{min, unit, per}, timeframe{from, to}, price{min, max, currency, unit}, freshness_days.
-- Nama provinsi tulis lengkap (misal "Jawa Timur"). Kabupaten ditulis "Kab. X" atau "Kota X".
-- Usulkan sinonim & istilah lokal di product.synonyms (misal TBS untuk sawit, lombok untuk cabai).
-- Jangan mengarang nilai yang tidak disebut operator; isi null.
+- ATURAN LOKASI (CERDAS & PRESISI):
+  * Nama provinsi tulis lengkap (misal "Jawa Barat", "Jawa Timur").
+  * Jika operator menyebut daerah/kota (misal "Bandung"), masukkan kabupaten/kota terkait di `include` (misal: ["Kab. Bandung", "Kota Bandung", "Kab. Bandung Barat", "Jawa Barat"]).
+  * Di `priority`, masukkan nama daerah atau kecamatan sentra pertanian yang relevan (misal untuk Bandung: ["Lembang", "Pangalengan", "Ciwidey", "Soreang"]).
+  * Jangan mengarang provinsi jika tidak relevan, tapi ekspansi kota ke entitas kabupatennya.
+- Usulkan sinonim & istilah lokal di product.synonyms (misal TBS untuk sawit, lombok untuk cabai, gedang untuk pisang).
+- Jangan mengarang nilai volume/harga yang tidak disebut operator; isi null.
 - "questions": maksimal 2 pertanyaan singkat untuk slot penting yang masih kosong/ambigu. Kosongkan jika sudah lengkap."""
 
 
