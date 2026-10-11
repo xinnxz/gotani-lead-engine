@@ -134,16 +134,22 @@ class FacebookExecutor:
         for item in d_resp:
             # Pada Google Search Scraper, hasil ada di dalam array 'organicResults'
             organic_results = item.get("organicResults", [])
+            sq_raw = item.get("searchQuery", "")
+            if isinstance(sq_raw, dict):
+                sq_term = str(sq_raw.get("term") or sq_raw.get("query") or "")
+            else:
+                sq_term = str(sq_raw or "")
+            q_lower = sq_term.lower()
+
             for res in organic_results:
-                title = res.get("title", "")
-                snippet = res.get("description", "")
-                url = res.get("url", "")
+                title = str(res.get("title") or "")
+                snippet = str(res.get("description") or "")
+                url = str(res.get("url") or "")
                 
                 # Gabungkan judul dan deskripsi sebagai teks mentah
                 text = f"{title}\n{snippet}"
 
                 u_lower = url.lower()
-                q_lower = item.get("searchQuery", "").lower()
 
                 if "maps.google" in u_lower or "google.com/maps" in u_lower or any(k in q_lower for k in ["toko buah", "toko sayur", "pasar induk", "grosir buah"]):
                     platform_tag = "google_maps"
@@ -158,7 +164,7 @@ class FacebookExecutor:
                 if snippet and len(snippet.strip()) > 15:
                     all_posts_data.append({
                         "platform": platform_tag,
-                        "query": item.get("searchQuery", ""),
+                        "query": sq_term,
                         "raw_text": text.strip(),
                         "url": url
                     })
