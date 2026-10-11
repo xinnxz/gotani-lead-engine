@@ -20,83 +20,307 @@ from agent.match_runner import (
 from agent.db import save_manual_order
 from agent.caller_lookup import lookup_caller
 
-# ================= PAGE CONFIG (harus pertama) =================
+# ================= PAGE CONFIG =================
 st.set_page_config(
-    page_title="GoTani Lead Engine",
+    page_title="GoTani Lead Engine | Apify Console",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ================= CUSTOM CSS =================
+# ================= CUSTOM CSS: APIFY CONSOLE DESIGN SYSTEM =================
 st.markdown("""
 <style>
+    /* Google Fonts Inter */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
 
+    /* Base canvas */
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        color: #101828;
+    }
+    
+    .stApp {
+        background-color: #f8fafc;
+    }
+
+    /* Top Breadcrumb Header */
+    .apify-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+    .apify-breadcrumb a {
+        color: #0284c7;
+        text-decoration: none;
+    }
+
+    /* Apify Status Bar */
+    .apify-status-bar {
+        background: #ffffff;
+        border: 1px solid #eaecf0;
+        border-radius: 8px;
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    }
+    .apify-status-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .apify-meta-item {
+        font-size: 12px;
+        color: #475467;
+        font-weight: 500;
+        padding-left: 12px;
+        border-left: 1px solid #e4e7ec;
+    }
+
+    /* Status Pills (Apify Style) */
+    .apify-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.2;
+    }
+    .apify-pill-success {
+        background-color: #ecfdf3;
+        color: #027a48;
+        border: 1px solid #abefc6;
+    }
+    .apify-pill-review {
+        background-color: #fffaeb;
+        color: #b54708;
+        border: 1px solid #fedf89;
+    }
+    .apify-pill-ignored {
+        background-color: #f2f4f7;
+        color: #344054;
+        border: 1px solid #eaecf0;
+    }
+    .apify-pill-pool {
+        background-color: #eff8ff;
+        color: #175cd3;
+        border: 1px solid #b2ddff;
+    }
+    .apify-pill-single {
+        background-color: #f8fafc;
+        color: #344054;
+        border: 1px solid #eaecf0;
+    }
+    .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .dot-success { background-color: #12b76a; }
+    .dot-review { background-color: #f79009; }
+    .dot-ignored { background-color: #98a2b3; }
+
+    /* Apify Card Container */
+    .apify-card {
+        background-color: #ffffff;
+        border: 1px solid #eaecf0;
+        border-radius: 8px;
+        padding: 18px;
+        margin-bottom: 14px;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+        transition: border-color 0.15s ease-in-out;
+    }
+    .apify-card:hover {
+        border-color: #cbd5e1;
+    }
+
+    /* Metric Cards */
+    div[data-testid="stMetric"] {
+        background: #ffffff;
+        border: 1px solid #eaecf0;
+        border-radius: 8px;
+        padding: 14px 18px;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    }
     div[data-testid="stMetricValue"] {
-        font-size: 2rem; font-weight: 700; color: #166534;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #101828;
+        letter-spacing: -0.02em;
     }
     div[data-testid="stMetricLabel"] {
-        font-size: 0.9rem; font-weight: 600; color: #4b5563;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #475467;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
 
+    /* Buttons: Apify Primary Blue & Clean Secondary */
     .stButton>button {
-        width: 100%;
-        background-color: #16a34a; color: white; font-weight: 600;
-        border-radius: 8px; border: none; padding: 0.5rem 1rem;
-        transition: all 0.2s;
+        border-radius: 6px;
+        font-weight: 500;
+        font-size: 0.88rem;
+        padding: 0.45rem 1rem;
+        transition: all 0.15s ease;
     }
-    .stButton>button:hover {
-        background-color: #15803d; color: white;
+    button[kind="primary"] {
+        background-color: #0284c7 !important;
+        color: #ffffff !important;
+        border: 1px solid #0284c7 !important;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    }
+    button[kind="primary"]:hover {
+        background-color: #0369a1 !important;
+        border-color: #0369a1 !important;
+    }
+    button[kind="secondary"] {
+        background-color: #ffffff !important;
+        color: #344054 !important;
+        border: 1px solid #d0d5dd !important;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    }
+    button[kind="secondary"]:hover {
+        background-color: #f8fafc !important;
+        border-color: #98a2b3 !important;
+        color: #101828 !important;
     }
 
-    .block-container { padding-top: 2rem; padding-bottom: 2rem; }
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] {
+        background-color: #ffffff;
+        border-right: 1px solid #eaecf0;
+    }
+    .user-chip {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        background: #f8fafc;
+        border: 1px solid #eaecf0;
+        border-radius: 6px;
+        margin-bottom: 14px;
+    }
+    .user-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: #0284c7;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 11px;
+    }
 
-    /* Sidebar divider */
-    [data-testid="stSidebar"] hr { margin: 0.5rem 0; }
+    /* Tabs Styling (Apify Pill Style) */
+    div[data-baseweb="tab-list"] {
+        gap: 6px;
+        border-bottom: 1px solid #eaecf0;
+        margin-bottom: 18px;
+    }
+    button[data-baseweb="tab"] {
+        border-radius: 6px 6px 0 0;
+        padding: 8px 16px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #475467;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #0284c7 !important;
+        font-weight: 600;
+        border-bottom: 2px solid #0284c7 !important;
+    }
+
+    /* Links in Tables */
+    a {
+        color: #0284c7;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    a:hover {
+        text-decoration: underline;
+    }
+
+    /* Spacing */
+    .block-container {
+        padding-top: 1.5rem;
+        padding-bottom: 2rem;
+    }
+    hr {
+        margin: 1.2rem 0;
+        border-color: #eaecf0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ================= INIT =================
+# ================= INIT DATABASE & GATEWAY =================
 conn = db.connect()
 gateway = LLMGateway(conn)
 
-# ================= SIDEBAR =================
+# ================= SIDEBAR (APIFY CONSOLE STYLE) =================
 with st.sidebar:
-    st.title("GoTani Engine")
-    st.caption("v1.0-alpha")
-    st.divider()
+    # User / Organization Chip (seperti di screenshot Apify)
+    st.markdown("""
+        <div class="user-chip">
+            <div class="user-avatar">GT</div>
+            <div>
+                <div style="font-size:12px; font-weight:600; color:#101828;">GoTani Lead Agent</div>
+                <div style="font-size:11px; color:#64748b;">Production Console</div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # --- Bagian 1: Quick Start ---
-    st.subheader("Quick Start")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Muat Demo", help="Isi database dengan data contoh"):
-            with st.spinner("Menyiapkan..."):
+    # --- Section: Quick Start ---
+    st.markdown("<div style='font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;'>Aksi Cepat</div>", unsafe_allow_html=True)
+    c_btn1, c_btn2 = st.columns(2)
+    with c_btn1:
+        if st.button("Muat Demo", help="Mengisi database dengan dataset demo komprehensif"):
+            with st.spinner("Memuat dataset demo..."):
                 subprocess.run([sys.executable, "seed_demo.py"], cwd=str(Path(__file__).parent))
                 st.rerun()
-    with col2:
-        if st.button("Hapus Data", help="Bersihkan seluruh database"):
-            with st.spinner("Menghapus..."):
+    with c_btn2:
+        if st.button("Hapus Data", help="Mengosongkan semua catatan lead dan match"):
+            with st.spinner("Mengosongkan database..."):
+                conn.execute("DELETE FROM matches")
+                conn.execute("DELETE FROM match_items")
                 conn.execute("DELETE FROM listings")
                 conn.execute("DELETE FROM raw_items")
                 conn.commit()
             st.rerun()
+
     st.divider()
 
-    # --- Bagian 2: New Campaign ---
-    st.subheader("New Campaign")
+    # --- Section: New Campaign Spec ---
+    st.markdown("<div style='font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;'>Kampanye Pencarian</div>", unsafe_allow_html=True)
     prompt_text = st.text_area(
-        "Kriteria",
+        "Kriteria Pencarian",
         placeholder="Contoh: Cari petani melon di Jawa Timur, minimal 500 kg",
-        height=100,
+        height=90,
+        label_visibility="collapsed",
     )
 
     if st.button("Susun Spesifikasi"):
         if not prompt_text.strip():
-            st.warning("Tulis kriteria pencarian terlebih dahulu.")
+            st.warning("Masukkan kriteria pencarian terlebih dahulu.")
         else:
-            with st.spinner("Menyusun spesifikasi..."):
+            with st.spinner("Menyusun spesifikasi kampanye..."):
                 cid = new_campaign_id(conn)
                 spec = None
                 if gateway.available:
@@ -109,7 +333,7 @@ with st.sidebar:
                         st.error(f"Gagal memproses API: {e}")
                 if spec is None:
                     if not gateway.available:
-                        st.warning("API Key belum dikonfigurasi, menggunakan mode offline.")
+                        st.warning("API key belum dikonfigurasi, beralih ke mode offline.")
                     spec = draft_spec_offline(prompt_text, cid)
                 st.session_state["draft_spec"] = spec.to_json()
 
@@ -117,95 +341,141 @@ with st.sidebar:
         edited_spec_json = st.text_area(
             "Konfigurasi Spesifikasi (JSON)",
             value=st.session_state["draft_spec"],
-            height=300,
+            height=250,
         )
         if st.button("Jalankan Pipeline", type="primary"):
             try:
                 raw_spec = json.loads(edited_spec_json)
                 c = CampaignSpec.model_validate(raw_spec)
                 save_campaign(conn, c)
-                with st.spinner("Sedang mencari data..."):
+                with st.spinner("Menjalankan pipeline Apify dan Gemini..."):
                     pipe = Pipeline(c)
                     asyncio.run(pipe.run())
-                    st.success("Operasi Selesai.")
+                    st.success("Pipeline berhasil diselesaikan.")
                     st.rerun()
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"Kesalahan: {e}")
 
-    # --- Bagian 3: Status Handoff ---
+    # --- Section: Handoff Detection ---
     st.divider()
     handoff_flag = Path("./data/HANDOFF_WAITING")
     if handoff_flag.exists():
-        st.error("Sistem membutuhkan intervensi keamanan (Login/CAPTCHA).")
+        st.error("Intervensi Verifikasi Diperlukan")
         st.caption(handoff_flag.read_text(encoding="utf-8"))
         if st.button("Lanjutkan Sistem"):
             handoff_flag.unlink(missing_ok=True)
             st.success("Konfirmasi diterima, sistem dilanjutkan.")
             st.rerun()
 
-    # --- Bagian 4: Info LLM Cost ---
-    st.divider()
-    st.subheader("Penggunaan API (Hari Ini)")
-    try:
-        usage = gateway.usage_today()
-        st.metric("Total Request", usage["requests"])
-        st.metric("Estimasi Biaya", f"${usage['cost_usd']:.4f}")
-        st.caption(f"Input: {usage['input_tokens']:,} tok | Output: {usage['output_tokens']:,} tok")
-        st.progress(
-            min(usage["cost_usd"] / settings.llm_daily_budget_usd, 1.0),
-            text=f"Batas Harian: ${settings.llm_daily_budget_usd:.2f}",
-        )
-    except Exception:
-        st.caption("Belum ada pemakaian API.")
-
-    # --- Bagian 5: Bantuan Telepon Masuk (PRD §7.7 / Fase 2) ---
-    st.divider()
-    st.subheader("📞 Telepon Masuk (Caller ID)")
-    st.caption("Panduan bicara 5-7 poin saat menerima telepon dari petani/pembeli.")
-    caller_input = st.text_input("Ketik Nomor HP Penelepon", placeholder="misal: 085329755561", key="side_caller_phone")
+    # --- Section: Inbound Call Assistant (Caller ID) ---
+    st.markdown("<div style='font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;'>Inbound Call Assistant</div>", unsafe_allow_html=True)
+    st.caption("Pencarian instan data profil penelepon untuk sales.")
+    caller_input = st.text_input("Nomor Telepon", placeholder="Contoh: 081234567890", key="side_caller_phone", label_visibility="collapsed")
     if caller_input:
         caller_res = lookup_caller(conn, caller_input)
         if not caller_res:
             st.warning("Format nomor telepon tidak valid.")
         elif not caller_res.get("found"):
             st.info(caller_res.get("message"))
-            with st.expander("Panduan Bicara (Mitra Baru)", expanded=True):
+            with st.expander("Panduan Bicara (Kontak Baru)", expanded=True):
                 for p in caller_res["talking_points"]:
-                    st.markdown(f"• {p}")
+                    st.markdown(f"- {p}")
         else:
-            st.success(f"**{caller_res['name']}** ({caller_res['role']})")
+            st.success(f"{caller_res['name']} ({caller_res['role']})")
             st.caption(f"Komoditas: {caller_res['product']} | Lokasi: {caller_res['location']}")
-            with st.expander("📋 Panduan Bicara (5-7 Poin)", expanded=True):
+            with st.expander("Panduan Bicara", expanded=True):
                 for pt in caller_res["talking_points"]:
-                    st.markdown(f"• {pt}")
+                    st.markdown(f"- {pt}")
 
-# ================= MAIN AREA =================
+    # --- Section: Usage & Resource Meter (Sesuai Screenshot Apify) ---
+    st.divider()
+    try:
+        usage = gateway.usage_today()
+        cost_val = usage["cost_usd"]
+        budget_val = settings.llm_daily_budget_usd
+        st.markdown(f"""
+            <div style="background:#f8fafc; border:1px solid #eaecf0; border-radius:6px; padding:10px; font-size:12px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                    <span style="color:#64748b;">Usage</span>
+                    <span style="font-weight:600; color:#0f172a;">${cost_val:.3f} / ${budget_val:.2f}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; color:#64748b; margin-bottom:6px;">
+                    <span>Requests</span>
+                    <span>{usage['requests']} calls</span>
+                </div>
+                <div style="font-size:11px; color:#0284c7; font-weight:600;">Plan: Free Developer Tier</div>
+            </div>
+        """, unsafe_allow_html=True)
+    except Exception:
+        pass
 
-st.title("Lead Intelligence Dashboard")
 
-# --- Metrik Ringkasan ---
+# ================= MAIN AREA: CONSOLE VIEW =================
+
+# 1. Breadcrumb Bar (Apify Console style)
+st.markdown("""
+    <div class="apify-breadcrumb">
+        <span>GoTani Console</span>
+        <span>/</span>
+        <span>Actors</span>
+        <span>/</span>
+        <span style="color:#0f172a; font-weight:600;">Google Search Results & FB Lead Engine</span>
+        <span class="apify-pill apify-pill-single" style="font-size:11px;">Actor</span>
+    </div>
+""", unsafe_allow_html=True)
+
+# 2. Status Bar Strip (Sesuai Screenshot 1 & 3 Apify)
 try:
     total_raw = conn.execute("SELECT COUNT(*) FROM raw_items").fetchone()[0]
     total_leads = conn.execute("SELECT COUNT(*) FROM listings").fetchone()[0]
     high_conf = conn.execute("SELECT COUNT(*) FROM listings WHERE confidence >= 80").fetchone()[0]
-    approved = conn.execute("SELECT COUNT(*) FROM listings WHERE review_status = 'approved'").fetchone()[0]
+    total_matches = conn.execute("SELECT COUNT(*) FROM matches").fetchone()[0]
+    usage = gateway.usage_today()
 except Exception:
-    total_raw, total_leads, high_conf, approved = 0, 0, 0, 0
+    total_raw, total_leads, high_conf, total_matches = 0, 0, 0, 0
+    usage = {"cost_usd": 0.0, "requests": 0}
 
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("Total Raw Posts", f"{total_raw:,}", help="Jumlah postingan mentah yang diambil.")
-m2.metric("Extracted Leads", f"{total_leads:,}", help="Jumlah prospek yang berhasil diekstrak.")
-m3.metric("High Confidence", f"{high_conf:,}", help="Prospek dengan skor confidence ≥ 80.")
-conv_rate = f"{int((total_leads / total_raw) * 100)}%" if total_raw > 0 else "0%"
-m4.metric("Conversion Rate", conv_rate, help="Rasio post mentah ke prospek.")
+last_run_time = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-st.divider()
+st.markdown(f"""
+    <div class="apify-status-bar">
+        <div class="apify-status-left">
+            <span class="apify-pill apify-pill-success">
+                <span class="dot dot-success"></span> Succeeded
+            </span>
+            <span style="font-size:13px; font-weight:600; color:#101828;">Dataset Siap</span>
+            <span class="apify-meta-item">Total Posts: <b>{total_raw}</b></span>
+            <span class="apify-meta-item">Valid Leads: <b>{total_leads}</b></span>
+            <span class="apify-meta-item">Matches: <b>{total_matches}</b></span>
+            <span class="apify-meta-item">Biaya: <b>${usage['cost_usd']:.3f}</b></span>
+            <span class="apify-meta-item">Waktu: <b>{last_run_time}</b></span>
+        </div>
+        <div>
+            <span style="font-size:12px; color:#0284c7; font-weight:600;">Status Operasional Normal</span>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
-# --- Tabel Data ---
-tab1, tab2, tab3, tab4 = st.tabs(["Verified Leads", "Matchmaking & Pooling", "Raw Data Log", "Campaign History"])
+# 3. Metric Summary Cards (Apify Dashboard Widget Style)
+col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+col_m1.metric("Raw Scraped Posts", f"{total_raw:,}", help="Jumlah postingan yang tersimpan dari penelusuran Google Search Scraper.")
+col_m2.metric("Extracted Leads", f"{total_leads:,}", help="Jumlah data lead yang berhasil diekstrak dan dinormalisasi.")
+col_m3.metric("High Confidence", f"{high_conf:,}", help="Prospek terverifikasi dengan tingkat keyakinan data ≥ 80%.")
+col_m4.metric("Active Matches", f"{total_matches:,}", help="Jumlah rekomendasi kecocokan pasokan dan permintaan yang teridentifikasi.")
 
+st.write("") # Spacer
+
+# 4. Main Tabs Navigation (Apify Output Style)
+tab1, tab2, tab3, tab4 = st.tabs([
+    f"Verified Leads ({total_leads})",
+    f"Matchmaking & Pooling ({total_matches})",
+    f"Raw Data Log ({total_raw})",
+    "Riwayat Kampanye",
+])
+
+
+# ================= TAB 1: VERIFIED LEADS =================
 with tab1:
-    # Filter controls
     fc1, fc2, fc3 = st.columns([1.5, 1.5, 1.2])
     with fc1:
         min_rel = st.slider("Batas Minimum Relevansi", 0, 100, 0, 5)
@@ -243,9 +513,8 @@ with tab1:
     df_leads = pd.read_sql_query(query_str, conn, params=tuple(params))
 
     if df_leads.empty:
-        st.info("Belum ada data prospek yang sesuai filter. Silakan muat data atau jalankan kampanye baru.")
+        st.info("Belum ada data prospek yang memenuhi kriteria filter saat ini.")
     else:
-        # Proses pembuatan Link WA otomatis dari nomor HP
         def make_wa_link(phone):
             if not phone: return None
             p = str(phone).split(',')[0].strip().replace(" ", "").replace("-", "")
@@ -259,7 +528,6 @@ with tab1:
         
         df_leads["Chat_WA"] = df_leads["Telepon"].apply(make_wa_link)
         
-        # Ekstrak Varietas dari JSON Attributes
         def extract_variety(attr_json):
             if not attr_json: return ""
             try:
@@ -267,47 +535,42 @@ with tab1:
                 variety = data.get("variety", [])
                 grade = data.get("grade")
                 res = []
-                if variety: res.append(f"Var: {', '.join(variety)}")
+                if variety: res.append(f"Varietas: {', '.join(variety)}")
                 if grade: res.append(f"Grade: {grade}")
                 return " | ".join(res)
-            except:
+            except Exception:
                 return ""
                 
         df_leads["Kualitas"] = df_leads["Atribut"].apply(extract_variety)
         
-        # Deteksi apakah URL mengarah ke postingan spesifik atau grup komunitas
         def detect_link_label(url_str):
-            if not url_str: return "🌐 Buka Web"
+            if not url_str: return "Buka Sumber"
             u = str(url_str).lower()
             if "/posts/" in u or "/permalink/" in u or "story.php" in u:
-                return "🔗 Postingan Spesifik"
+                return "Postingan Spesifik"
             elif "/groups/" in u:
-                return "👥 Grup Komunitas"
-            return "🔗 Buka Sumber"
+                return "Grup Komunitas"
+            return "Buka Sumber"
             
         df_leads["Label_Sumber"] = df_leads["URL"].apply(detect_link_label)
 
-        # Header aksi unduh & reviewer
-        top_c1, top_c2 = st.columns([1, 3])
+        # Header Export Row (Apify style)
+        top_c1, top_c2 = st.columns([1, 4])
         with top_c1:
             csv_leads = df_leads.drop(columns=["Alasan_Skor", "Atribut"], errors="ignore").to_csv(index=False).encode("utf-8")
             st.download_button(
-                "Unduh Data (CSV)", csv_leads,
-                file_name=f"verified_leads_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                "Export Dataset (CSV)", csv_leads,
+                file_name=f"apify_leads_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
                 mime="text/csv",
             )
 
-        # Urutkan dan pilih kolom yang paling esensial agar tidak kepotong horizontal
         display_cols = [
             "id", "Komoditas", "Kategori", "Volume_Kg", "Harga_Kg", 
             "Lokasi", "Chat_WA", "Rel_Score", "Review", "Label_Sumber", "URL"
         ]
         
-        # Rename Intent menjadi Kategori untuk display
         df_leads_display = df_leads.copy()
         df_leads_display["Kategori"] = df_leads_display["Intent"]
-        
-        # Pastikan kolom yang ada saja yang diambil
         final_cols = [c for c in display_cols if c in df_leads_display.columns]
 
         st.dataframe(
@@ -321,41 +584,39 @@ with tab1:
                 "Volume_Kg": st.column_config.NumberColumn("Volume (Kg)", format="%d", width="small"),
                 "Harga_Kg": st.column_config.NumberColumn("Harga/Kg", format="Rp %d", width="small"),
                 "Lokasi": st.column_config.TextColumn("Lokasi", width="medium"),
-                "Chat_WA": st.column_config.LinkColumn("Chat WA", display_text="📱 Hubungi WA", width="medium"),
+                "Chat_WA": st.column_config.LinkColumn("WhatsApp", display_text="Hubungi WhatsApp", width="medium"),
                 "Rel_Score": st.column_config.ProgressColumn("Relevansi", min_value=0, max_value=100, format="%d%%", width="small"),
                 "Review": st.column_config.TextColumn("Status", width="small"),
                 "Label_Sumber": st.column_config.TextColumn("Tipe Sumber", width="small"),
-                "URL": st.column_config.LinkColumn("Tautan", display_text="🔗 Buka", width="small"),
+                "URL": st.column_config.LinkColumn("Tautan", display_text="Buka Tautan", width="small"),
             },
         )
 
-        # --- Modul Aksi Reviewer (Human-in-the-Loop) ---
-        with st.expander("🛠️ Panel Verifikasi Reviewer (Approve / Reject)", expanded=True):
-            st.caption("Verifikasi keaslian prospek sebelum diteruskan ke tim Sales (PRD §3.3 & §7.5)")
+        with st.expander("Panel Verifikasi Reviewer", expanded=False):
+            st.caption("Verifikasi keaslian dan kelayakan prospek sebelum diteruskan ke tim Sales.")
             rev_col1, rev_col2, rev_col3 = st.columns([1.5, 2, 2])
             
             with rev_col1:
                 selectable_ids = df_leads["id"].tolist()
-                target_id = st.selectbox("Pilih ID Lead", selectable_ids, help="ID prospek yang ingin Anda verifikasi")
+                target_id = st.selectbox("Pilih ID Lead", selectable_ids)
             
             with rev_col2:
-                review_note = st.text_input("Catatan Reviewer (Opsional)", placeholder="misal: Nomor valid, petani ramah")
+                review_note = st.text_input("Catatan Reviewer", placeholder="Contoh: Nomor kontak aktif, data valid")
             
             with rev_col3:
-                st.write("") # Spacer
+                st.write("")
                 btn_c1, btn_c2 = st.columns(2)
                 with btn_c1:
-                    if st.button("✅ Approve", help="Setujui lead ini sebagai data terverifikasi"):
+                    if st.button("Approve"):
                         db.update_review_status(conn, target_id, "approved", review_note)
-                        st.success(f"Lead #{target_id} disetujui (Approved)!")
+                        st.success(f"Lead #{target_id} disetujui.")
                         st.rerun()
                 with btn_c2:
-                    if st.button("❌ Reject", help="Tolak lead ini jika spam, calo, atau tidak valid"):
+                    if st.button("Reject"):
                         db.update_review_status(conn, target_id, "rejected", review_note)
-                        st.warning(f"Lead #{target_id} ditolak (Rejected)!")
+                        st.warning(f"Lead #{target_id} ditolak.")
                         st.rerun()
 
-        # Score breakdown expander
         with st.expander("Rincian Kalkulasi Skor"):
             for _, row in df_leads.iterrows():
                 reasons = json.loads(row["Alasan_Skor"]) if row["Alasan_Skor"] else {}
@@ -372,46 +633,45 @@ with tab1:
                             st.caption(c)
                     st.divider()
 
-# ================= TAB 2: MATCHMAKING & POOLING (FASE 2) =================
-with tab2:
-    st.markdown("### 🤝 Matchmaking Supply ↔ Demand & Smart Pooling")
-    st.caption("Pencocokan kebutuhan pembeli dengan petani terverifikasi + agregasi volume cerdas (PRD §7.6 / Fase 2)")
 
-    # 1. Baris Aksi Utama & Filter
+# ================= TAB 2: MATCHMAKING & POOLING =================
+with tab2:
+    st.markdown("### Matchmaking dan Smart Pooling Engine")
+    st.caption("Algoritma pencocokan dua sisi (Supply ↔ Demand) dan agregasi multi-petani terdekat (PRD §7.6)")
+
     m_act1, m_act2, m_act3 = st.columns([2, 1.5, 1.5])
     with m_act1:
-        if st.button("⚡ Jalankan Matchmaking Engine", type="primary", help="Hitung skor kecocokan semua order pembeli terhadap penawaran petani"):
+        if st.button("Jalankan Matchmaking", type="primary", help="Hitung skor kecocokan semua order pembeli terhadap penawaran petani"):
             with st.spinner("Menghitung kecocokan dan menyusun smart pool..."):
                 m_stats = run_all_matches(conn, include_pending_high_score=True)
-                st.success(f"Selesai! {m_stats['matches_created']} match 1-ke-1 dan {m_stats['pools_created']} smart pool berhasil dihitung.")
+                st.success(f"Selesai: {m_stats['matches_created']} match tunggal dan {m_stats['pools_created']} smart pool berhasil dihitung.")
                 st.rerun()
 
     with m_act2:
-        tier_select = st.selectbox("Filter Tier Rekomendasi", ["Semua", "outreach", "review", "ignored"], index=0, help="outreach (skor ≥80), review (50-79), ignored (<50)")
+        tier_select = st.selectbox("Filter Tier", ["Semua", "outreach", "review", "ignored"], index=0, help="outreach (skor ≥80), review (50-79), ignored (<50)")
 
     with m_act3:
-        include_pending = st.checkbox("Ikutkan lead pending berskor tinggi", value=True, help="Menyertakan petani yang belum di-approve tapi relevance ≥70 dan confidence ≥60")
+        include_pending = st.checkbox("Sertakan lead pending berskor tinggi", value=True, help="Menyertakan petani yang belum di-approve tapi relevance ≥70 dan confidence ≥60")
 
-    # 2. Form Input Order Pembeli Baru (Demand Manual)
-    with st.expander("➕ Input Kebutuhan Pembeli Baru (Order Demand)", expanded=False):
-        st.caption("Masukkan pesanan/kebutuhan nyata dari pembeli untuk dicocokkan dengan data petani di database.")
+    with st.expander("Input Permintaan Pembeli Baru (Demand)", expanded=False):
+        st.caption("Tambahkan pesanan pembeli baru untuk langsung dipasangkan dengan petani di database.")
         with st.form("form_manual_order"):
             fo_c1, fo_c2 = st.columns(2)
             with fo_c1:
-                b_name = st.text_input("Nama Pembeli / Usaha *", placeholder="misal: PT Sumber Berkah Buah")
-                b_prod = st.text_input("Komoditas yang Dicari *", placeholder="misal: melon, semangka, pisang")
-                b_vol = st.number_input("Volume Dibutuhkan (Kg) *", min_value=1.0, value=500.0, step=50.0)
-                b_price = st.number_input("Batas Harga Maksimal Pembeli (Rp/Kg)", min_value=0.0, value=9000.0, step=500.0)
+                b_name = st.text_input("Nama Usaha / Pembeli *", placeholder="Contoh: PT Sumber Berkah Buah")
+                b_prod = st.text_input("Komoditas *", placeholder="Contoh: melon, semangka, pisang")
+                b_vol = st.number_input("Volume Kebutuhan (Kg) *", min_value=1.0, value=500.0, step=50.0)
+                b_price = st.number_input("Batas Anggaran Maksimal (Rp/Kg)", min_value=0.0, value=9000.0, step=500.0)
             with fo_c2:
-                b_loc = st.text_input("Lokasi Gudang / Titik Kirim *", placeholder="misal: Kota Surabaya, Sidoarjo, Kediri")
-                b_date = st.date_input("Dibutuhkan Paling Lambat", value=datetime.now())
-                b_phone = st.text_input("Nomor Telepon / WA Pembeli", placeholder="misal: 081234567890")
-                b_var = st.text_input("Varietas Khusus (Opsional)", placeholder="misal: madesta, golden, atau kosongkan jika bebas")
+                b_loc = st.text_input("Titik Pengiriman (Kabupaten/Kota) *", placeholder="Contoh: Kota Surabaya, Sidoarjo, Kediri")
+                b_date = st.date_input("Tenggat Kebutuhan", value=datetime.now())
+                b_phone = st.text_input("Nomor Kontak Pembeli", placeholder="Contoh: 081234567890")
+                b_var = st.text_input("Varietas Khusus (Opsional)", placeholder="Contoh: madesta, golden, atau kosongkan")
 
-            submitted_order = st.form_submit_button("Simpan Order Pembeli", type="secondary")
+            submitted_order = st.form_submit_button("Simpan Permintaan Pembeli", type="secondary")
             if submitted_order:
                 if not b_name or not b_prod or not b_loc:
-                    st.error("Nama pembeli, komoditas, dan lokasi wajib diisi!")
+                    st.error("Nama pembeli, komoditas, dan lokasi pengiriman wajib diisi.")
                 else:
                     new_id = save_manual_order(
                         conn,
@@ -424,36 +684,48 @@ with tab2:
                         contact_phone=b_phone,
                         variety=b_var,
                     )
-                    st.success(f"Order #{new_id} untuk '{b_name}' berhasil disimpan! Silakan klik 'Jalankan Matchmaking Engine'.")
+                    st.success(f"Permintaan #{new_id} untuk '{b_name}' berhasil disimpan.")
                     st.rerun()
 
-    # 3. Tampilkan Daftar Match Hasil Komputasi
     matches_list = get_matches_for_display(conn, tier_filter=tier_select)
 
     if not matches_list:
-        st.info("Belum ada data match yang sesuai kriteria. Klik tombol '⚡ Jalankan Matchmaking Engine' di atas, atau masukkan order pembeli baru.")
+        st.info("Belum ada data match yang memenuhi kriteria filter. Klik tombol 'Jalankan Matchmaking' di atas.")
     else:
-        st.write(f"Menampilkan **{len(matches_list)}** rekomendasi match:")
+        st.caption(f"Menampilkan {len(matches_list)} hasil rekomendasi pasangan:")
 
         for m in matches_list:
             is_pool = (m["kind"] == "pool")
-            tier_badge = "🟢 PRIORITAS OUTREACH" if m["tier"] == "outreach" else ("🟡 PERLU REVIEW" if m["tier"] == "review" else "⚪ DIABAIKAN")
-            badge_color = "#15803d" if m["tier"] == "outreach" else ("#b45309" if m["tier"] == "review" else "#6b7280")
+            tier_class = "apify-pill-success" if m["tier"] == "outreach" else ("apify-pill-review" if m["tier"] == "review" else "apify-pill-ignored")
+            tier_dot = "dot-success" if m["tier"] == "outreach" else ("dot-review" if m["tier"] == "review" else "dot-ignored")
+            tier_label = "Prioritas Outreach" if m["tier"] == "outreach" else ("Perlu Review" if m["tier"] == "review" else "Diabaikan")
+            kind_class = "apify-pill-pool" if is_pool else "apify-pill-single"
+            kind_label = "Smart Pooling" if is_pool else "Match Tunggal"
+
+            # Apify Card Style
+            st.markdown(f"""
+                <div class="apify-card">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+                        <div>
+                            <span class="apify-pill {kind_class}">{kind_label}</span>
+                            <span class="apify-pill {tier_class}"><span class="dot {tier_dot}"></span> {tier_label}</span>
+                            <h4 style="margin:8px 0 2px 0; color:#101828;">{m['buyer_name']} — {m['buyer_location']}</h4>
+                            <span style="font-size:12px; color:#64748b;">
+                                Komoditas: <b>{m['product'].title()}</b> | Kebutuhan: <b>{m['buyer_vol']:g} kg</b> | 
+                                Anggaran Maksimal: <b>{f'Rp {m["buyer_max_price"]:,.0f}/kg' if m.get('buyer_max_price') else 'Belum ditentukan'}</b>
+                            </span>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:1.8rem; font-weight:700; color:#101828; line-height:1;">
+                                {m['score']}<span style="font-size:12px; color:#64748b; font-weight:500;">/100</span>
+                            </div>
+                            <div style="font-size:11px; color:#0284c7; font-weight:600; margin-top:2px;">Cakupan: {m['coverage_pct']:g}%</div>
+                        </div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
             with st.container(border=True):
-                # Header Kartu
-                hdr_col1, hdr_col2 = st.columns([3, 1.2])
-                with hdr_col1:
-                    kind_label = "🧩 SMART POOLING (AGREGASI PETANI)" if is_pool else "🤝 MATCH 1-KE-1"
-                    st.markdown(f"#### {kind_label} · {m['buyer_name']} ({m['buyer_location']})")
-                    st.caption(f"Komoditas: **{m['product'].title()}** | Kebutuhan: **{m['buyer_vol']:g} kg** | Budget Maks: **Rp {m['buyer_max_price']:,.0f}/kg**" if m['buyer_max_price'] else f"Komoditas: **{m['product'].title()}** | Kebutuhan: **{m['buyer_vol']:g} kg**")
-                
-                with hdr_col2:
-                    st.markdown(f"<div style='text-align:right;'><span style='background-color:{badge_color}; color:white; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:0.85rem;'>{tier_badge}</span><br><h3 style='margin:4px 0; color:#166534;'>Skor: {m['score']}</h3><small>Coverage: {m['coverage_pct']:g}%</small></div>", unsafe_allow_html=True)
-
-                st.divider()
-
-                # Badan Kartu: Daftar Petani
                 st.markdown("**Petani Rekomendasi:**")
                 items = m.get("items", [])
                 if items:
@@ -462,62 +734,64 @@ with tab2:
                         target_col = f_cols[idx] if len(items) <= 3 else st
                         with target_col:
                             st.markdown(f"**{it.get('farmer_name') or 'Petani'}** ({it.get('farmer_location') or '-'})")
-                            st.caption(f"Alokasi: **{it.get('allocated_kg', 0):g} kg** | Harga: **Rp {it.get('farmer_price', 0):,.0f}**" if it.get('farmer_price') else f"Alokasi: **{it.get('allocated_kg', 0):g} kg** | Harga: *belum tertera*")
+                            price_str = f"Rp {it.get('farmer_price', 0):,.0f}/kg" if it.get('farmer_price') else "Belum tertera"
+                            st.caption(f"Alokasi: {it.get('allocated_kg', 0):g} kg | Harga: {price_str}")
                             if it.get("distance_km"):
-                                st.caption(f"Jarak ke pembeli: ~{it['distance_km']} km")
+                                st.caption(f"Estimasi Jarak: {it['distance_km']} km")
                             if it.get("farmer_wa"):
-                                st.markdown(f"[📱 Hubungi WA Petani]({it['farmer_wa']})")
+                                st.markdown(f"[Hubungi WhatsApp]({it['farmer_wa']})")
 
-                # Disclaimer Pooling (F6.4)
                 if is_pool:
                     disclaimer_text = m.get("breakdown", {}).get("disclaimer")
                     if disclaimer_text:
-                        st.warning(f"⚠️ **Saran Agregasi:** {disclaimer_text}")
+                        st.info(f"Catatan Agregasi: {disclaimer_text}")
 
-                # Estimasi Margin GoTani (jika ada)
                 margin_info = m.get("margin")
                 if margin_info and margin_info.get("est_gross_margin_rp", 0) > 0:
-                    st.success(f"💰 **Estimasi Potensi Margin GoTani ({margin_info.get('margin_pct', 0.1):.0%}):** Rp {margin_info['est_gross_margin_rp']:,.0f} (Beli: Rp{margin_info['farmer_price']:,.0f} → Rekomendasi Jual: Rp{margin_info['suggested_price']:,.0f}/kg)")
+                    st.markdown(
+                        f"**Estimasi Margin GoTani ({margin_info.get('margin_pct', 0.1):.0%}):** "
+                        f"Rp {margin_info['est_gross_margin_rp']:,.0f} "
+                        f"(Harga Petani: Rp {margin_info['farmer_price']:,.0f}/kg, Rekomendasi Penawaran: Rp {margin_info['suggested_price']:,.0f}/kg)"
+                    )
 
-                # Kekurangan / Gaps (F6.3)
                 gaps = m.get("gaps", [])
                 if gaps:
-                    with st.expander("Catatan Kekurangan & Verifikasi (Gaps)", expanded=False):
+                    with st.expander("Catatan Validasi & Kekurangan Data", expanded=False):
                         for g in gaps:
-                            st.caption(f"• {g}")
+                            st.caption(f"- {g}")
 
-                # Panel Aksi Outreach & Catat Hasil (F6.5 / F6.6)
                 act_c1, act_c2, act_c3 = st.columns([1.5, 2, 2.5])
                 with act_c1:
                     if m.get("buyer_wa"):
-                        st.markdown(f"[📱 Hubungi Pembeli via WA]({m['buyer_wa']})")
+                        st.markdown(f"[Hubungi Pembeli via WhatsApp]({m['buyer_wa']})")
                     else:
-                        st.caption("Kontak WA pembeli belum ada")
+                        st.caption("Kontak pembeli belum tersedia")
 
                 with act_c2:
                     if m["status"] == "open":
-                        if st.button("✅ Konfirmasi Outreach", key=f"conf_{m['match_id']}"):
+                        if st.button("Konfirmasi Outreach", key=f"conf_{m['match_id']}"):
                             update_match_status(conn, m["match_id"], "confirmed")
-                            st.success("Match dikonfirmasi untuk outreach!")
+                            st.success("Status match diperbarui menjadi confirmed.")
                             st.rerun()
                     else:
-                        st.caption(f"Status: **{m['status'].upper()}**")
+                        st.caption(f"Status Alur: {m['status'].upper()}")
 
                 with act_c3:
                     if m["status"] != "closed":
-                        with st.popover("Catat Hasil Transaksi (Deal/No Deal)"):
+                        with st.popover("Catat Hasil Transaksi"):
                             out_choice = st.radio("Hasil Transaksi", ["deal", "no_deal"], key=f"rad_{m['match_id']}")
-                            out_note = st.text_input("Alasan Hasil", placeholder="misal: Harga disepakati, siap kirim tgl 20", key=f"note_{m['match_id']}")
+                            out_note = st.text_input("Keterangan Hasil", placeholder="Contoh: Kesepakatan harga tercapai, jadwal panen cocok", key=f"note_{m['match_id']}")
                             if st.button("Simpan Hasil", key=f"btn_out_{m['match_id']}"):
                                 update_match_outcome(conn, m["match_id"], out_choice, out_note)
-                                st.success("Hasil match berhasil dicatat!")
+                                st.success("Hasil transaksi tersimpan.")
                                 st.rerun()
                     else:
-                        st.caption(f"Hasil: **{str(m.get('outcome')).upper()}** ({m.get('outcome_reason') or '-'})")
+                        st.caption(f"Hasil Akhir: {str(m.get('outcome')).upper()} ({m.get('outcome_reason') or '-'})")
 
+
+# ================= TAB 3: RAW DATA LOG =================
 with tab3:
     df_raw = pd.read_sql_query("""
-
         SELECT
             id AS ID,
             platform AS Platform,
@@ -530,11 +804,11 @@ with tab3:
     """, conn)
 
     if df_raw.empty:
-        st.caption("Data raw log kosong.")
+        st.caption("Data log mentah kosong.")
     else:
         csv_raw = df_raw.to_csv(index=False).encode("utf-8")
         st.download_button(
-            "Unduh Raw Log (CSV)", csv_raw,
+            "Export Raw Log (CSV)", csv_raw,
             file_name=f"raw_data_log_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv",
         )
@@ -547,11 +821,13 @@ with tab3:
                 "Platform": st.column_config.TextColumn("Sumber", width="small"),
                 "Campaign": st.column_config.TextColumn("Campaign", width="medium"),
                 "Teks_Original": st.column_config.TextColumn("Teks Postingan Asli", width="large"),
-                "Diproses": st.column_config.CheckboxColumn("Pipeline"),
+                "Diproses": st.column_config.CheckboxColumn("Diproses"),
             },
         )
 
-with tab3:
+
+# ================= TAB 4: RIWAYAT KAMPANYE =================
+with tab4:
     try:
         campaigns = list_campaigns(conn)
         if campaigns:
@@ -561,6 +837,6 @@ with tab3:
             )
             st.dataframe(df_camp, use_container_width=True, hide_index=True)
         else:
-            st.caption("Belum ada kampanye.")
+            st.caption("Belum ada riwayat kampanye.")
     except Exception:
-        st.caption("Belum ada kampanye.")
+        st.caption("Belum ada riwayat kampanye.")

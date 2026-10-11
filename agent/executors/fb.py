@@ -27,7 +27,7 @@ class FacebookExecutor:
             return []
             
         print("\n" + "="*50)
-        print("🚀 MENGHUBUNGI SERVER APIFY UNTUK PENCARIAN DINAMIS...")
+        print("[APIFY] Menghubungi server Apify untuk pencarian dinamis...")
         print("="*50)
         
         # Kita menggunakan Google Search Scraper dari Apify untuk mencari spesifik di dalam Facebook
