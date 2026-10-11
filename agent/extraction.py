@@ -4,27 +4,45 @@ from __future__ import annotations
 from .campaign import CampaignSpec
 from .llm_gateway import LLMGateway
 
-EXTRACT_SYSTEM = """Kamu mengekstrak data lead agribisnis dari postingan media sosial / halaman web berbahasa Indonesia
-(boleh campur bahasa daerah, singkatan, dan salah ketik). Balas HANYA JSON array, satu objek per post.
+EXTRACT_SYSTEM = """Kamu adalah analis intelijen agribisnis Indonesia tingkat senior yang sangat teliti.
+Tugasmu adalah memverifikasi dan mengekstrak data prospek (leads) dari postingan media sosial / grup Facebook.
+Bahasa postingan bisa berupa bahasa Indonesia santai, slang petani, bahasa daerah (Jawa, Sunda), singkatan, atau salah ketik.
 
-Aturan:
-- intent: "supply" (menawarkan/menjual hasil tani), "demand" (mencari/membeli hasil tani),
-  "other" (iklan jasa, bibit, pupuk, alat, pinjaman, dll), atau "irrelevant".
-  Kalimat seperti "yang butuh silakan japri" pada post penjual tetap "supply".
-- Field yang tidak disebut WAJIB null. Jangan mengarang atau menebak.
-- entity_name: nama orang/usaha/kelompok tani bila disebut di teks.
-- volume_value + volume_unit: apa adanya dari teks (kg, kuintal, kw, ton).
-- price_value: rupiah penuh (4rb → 4000, 3,5k → 3500); price_unit: satuan harganya (kg, kw, ton).
-- location_text: lokasi yang disebut (desa/kecamatan/kabupaten/provinsi).
-- available_text: frasa waktu panen/ketersediaan/kebutuhan (misal "panen minggu depan").
-- Token seperti [PHONE_1] atau [EMAIL_1] adalah kontak yang sudah disensor. Jangan diubah atau ditebak.
-- flags: pilih dari ["calo", "reseller", "indikasi_penipuan", "harga_tidak_wajar"] bila ada tandanya.
-- evidence: potongan teks asli (maks 60 karakter) untuk setiap field yang terisi; kuncinya nama field."""
+ATURAN KLASIFIKASI & VALIDASI KETAT:
+1. INTENT:
+   - "supply": Menawarkan/menjual panen atau stok hasil tani riil (misal: "panen melon", "ready semangka di lahan", "ecer/borongan").
+     Kalimat seperti "yang butuh silakan japri" atau "minat WA" pada postingan penjual tetap "supply".
+   - "demand": Mencari/membeli hasil tani (misal: "butuh melon 2 ton", "cari supplier semangka", "tampung hasil panen").
+   - "other": Iklan bibit, benih, pupuk, pestisida, alat/mesin tani, pinjaman modal, tanah kebun, atau jasa transportasi.
+   - "irrelevant": Diskusi umum, tanya jawab tips berkebun, resep masakan, postingan hoax, atau komoditas yang TIDAK SESUAI dengan target kampanye.
+
+2. PENANGANAN KOMODITAS (PRODUCT):
+   - Jika postingan membahas komoditas yang berbeda dari yang dicari kampanye, set intent = "irrelevant".
+   - Ekstrak "variety" (misal: "madesta", "aromanis", "golden", "inthanon") dan "grade" (misal: "grade A", "super", "BS", "afkir") jika ada.
+
+3. ANGKA & SATUAN (Wajib akurat):
+   - Field yang tidak tertulis di teks WAJIB diisi null. DILARANG MENGARANG ATAU MENEBAK.
+   - volume_value: angka nominal (misal: "2 ton" → 2, "5 kuintal" → 5, "500 kg" → 500).
+   - volume_unit: satuan aslinya ("kg", "kuintal", "kw", "ton", "petak").
+   - price_value: ubah bahasa gaul harga ke Rupiah penuh (contoh: "5rb" → 5000, "7,5k" → 7500, "10.000" → 10000).
+   - price_unit: satuan harga (biasanya "kg", "ikat", "butir", "borongan").
+
+4. LOKASI & WAKTU:
+   - location_text: nama desa, kecamatan, kabupaten, atau pasar yang disebut di postingan (misal: "Minggirsari Blitar", "Kec. Pare").
+   - available_text: waktu panen/ketersediaan (misal: "panen besok lusa", "ready tiap hari", "petik minggu depan").
+
+5. KONTAK & PRIVASI:
+   - Token seperti [PHONE_1] atau [EMAIL_1] adalah nomor kontak asli yang telah disensor demi privasi.
+   - SALIN token tersebut apa adanya, jangan dimodifikasi atau ditebak.
+
+6. FLAGS (Tanda Peringatan):
+   - Beri flag jika terdeteksi: ["calo", "reseller", "indikasi_penipuan", "harga_tidak_wajar", "stok_tidak_pasti"].
+"""
 
 FORMAT_HINT = (
-    '[{"idx":0,"intent":"supply","entity_name":null,"product":"melon","variety":null,"grade":null,'
-    '"volume_value":2,"volume_unit":"kuintal","price_value":4000,"price_unit":"kg","location_text":"Kediri",'
-    '"available_text":null,"flags":[],"evidence":{"volume":"2 kuintal","price":"4rb/kg"}}]'
+    '[{"idx":0,"intent":"supply","entity_name":"Pak Budi","product":"melon","variety":"madesta","grade":"super",'
+    '"volume_value":500,"volume_unit":"kg","price_value":7000,"price_unit":"kg","location_text":"Nganjuk",'
+    '"available_text":"panen lusa","flags":[],"evidence":{"product":"melon madesta","volume":"500 kg","price":"7rb/kg"}}]'
 )
 
 
