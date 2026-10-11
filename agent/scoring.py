@@ -40,27 +40,36 @@ def relevance(listing: dict, spec: CampaignSpec, raw_text: str) -> tuple[int, li
 
     terms = spec.product_terms()
     prod = (listing.get("product") or "").lower()
-    if any(t in prod for t in terms) or any(re.search(rf"\b{re.escape(t)}\b", low) for t in terms):
-        score += 35
-        why.append(f"+35 produk cocok ({spec.product.name})")
+    product_matched = any(t in prod for t in terms) or any(re.search(rf"\b{re.escape(t)}\b", low) for t in terms)
+    
+    if product_matched:
+        score += 40
+        why.append(f"+40 produk cocok ({spec.product.name})")
     else:
-        why.append("+0 produk tidak cocok")
+        # Penalti keras: jika produk tidak cocok sama sekali, skor tidak boleh tinggi
+        score -= 20
+        why.append("-20 PENALTI: produk sama sekali tidak cocok")
 
-    if listing.get("intent") == spec.target_intent:
-        score += 25
-        why.append(f"+25 niat sesuai ({listing.get('intent')})")
+    intent_val = listing.get("intent")
+    if intent_val == spec.target_intent:
+        score += 30
+        why.append(f"+30 niat sesuai ({intent_val})")
+    elif intent_val in ("other", "irrelevant"):
+        score -= 30
+        why.append(f"-30 PENALTI: niat tidak relevan ({intent_val})")
     else:
-        why.append(f"+0 niat tidak sesuai ({listing.get('intent')})")
+        why.append(f"+0 niat tidak sesuai ({intent_val})")
 
     loc = _in_target_location(listing, spec)
     if loc is True:
         score += 20
         why.append(f"+20 lokasi di target ({listing.get('kabupaten') or listing.get('provinsi')})")
     elif loc is None:
-        score += 8
-        why.append("+8 lokasi tidak disebut")
+        score += 5
+        why.append("+5 lokasi tidak spesifik")
     else:
-        why.append(f"+0 lokasi di luar target ({listing.get('kabupaten') or listing.get('provinsi')})")
+        score -= 10
+        why.append(f"-10 lokasi di luar target ({listing.get('kabupaten') or listing.get('provinsi')})")
 
     vmin, vol = spec.volume.min, listing.get("volume_kg")
     if not vmin:
@@ -92,7 +101,8 @@ def relevance(listing: dict, spec: CampaignSpec, raw_text: str) -> tuple[int, li
     else:
         why.append(f"+0 varietas berbeda ({variety})")
 
-    return round(score), why
+    final_score = max(0, min(100, round(score)))
+    return final_score, why
 
 
 def confidence(listing: dict, spec: CampaignSpec, platform: str, confirmations: int,
