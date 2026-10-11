@@ -270,26 +270,35 @@ with tab1:
                 mime="text/csv",
             )
 
+        # Urutkan dan pilih kolom yang paling esensial agar tidak kepotong horizontal
+        display_cols = [
+            "id", "Komoditas", "Kategori", "Volume_Kg", "Harga_Kg", 
+            "Lokasi", "Chat_WA", "Rel_Score", "Review", "Label_Sumber", "URL"
+        ]
+        
+        # Rename Intent menjadi Kategori untuk display
+        df_leads_display = df_leads.copy()
+        df_leads_display["Kategori"] = df_leads_display["Intent"]
+        
+        # Pastikan kolom yang ada saja yang diambil
+        final_cols = [c for c in display_cols if c in df_leads_display.columns]
+
         st.dataframe(
-            df_leads.drop(columns=["Alasan_Skor", "Atribut"], errors="ignore"),
+            df_leads_display[final_cols],
             use_container_width=True,
             hide_index=True,
             column_config={
                 "id": st.column_config.NumberColumn("ID", width="small"),
-                "Intent": st.column_config.TextColumn("Kategori", width="small"),
                 "Komoditas": st.column_config.TextColumn("Komoditas", width="small"),
-                "Kualitas": st.column_config.TextColumn("Kualitas/Varietas", width="medium"),
-                "Volume_Kg": st.column_config.NumberColumn("Volume (Kg)", format="%d"),
-                "Harga_Kg": st.column_config.NumberColumn("Harga/Kg (Rp)", format="Rp %d"),
+                "Kategori": st.column_config.TextColumn("Kategori", width="small"),
+                "Volume_Kg": st.column_config.NumberColumn("Volume (Kg)", format="%d", width="small"),
+                "Harga_Kg": st.column_config.NumberColumn("Harga/Kg", format="Rp %d", width="small"),
                 "Lokasi": st.column_config.TextColumn("Lokasi", width="medium"),
-                "Telepon": st.column_config.TextColumn("Kontak", width="medium"),
-                "Chat_WA": st.column_config.LinkColumn("Chat WA", display_text="📱 Hubungi WA"),
-                "Rel_Score": st.column_config.ProgressColumn("Relevansi", min_value=0, max_value=100, format="%d%%"),
-                "Conf_Score": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=100, format="%d%%"),
+                "Chat_WA": st.column_config.LinkColumn("Chat WA", display_text="📱 Hubungi WA", width="medium"),
+                "Rel_Score": st.column_config.ProgressColumn("Relevansi", min_value=0, max_value=100, format="%d%%", width="small"),
                 "Review": st.column_config.TextColumn("Status", width="small"),
                 "Label_Sumber": st.column_config.TextColumn("Tipe Sumber", width="small"),
-                "Extractor": st.column_config.TextColumn("Sistem", width="small"),
-                "URL": st.column_config.LinkColumn("Tautan Asli", display_text="Buka Tautan"),
+                "URL": st.column_config.LinkColumn("Tautan", display_text="🔗 Buka", width="small"),
             },
         )
 

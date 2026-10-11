@@ -35,9 +35,9 @@ class Pipeline:
             
             raw_items_saved = 0
             
-            # 2. Eksekusi scraping untuk setiap query sekaligus (M1 target: 10 pencarian)
-            queries_to_run = queries[:10]
-            posts = await self.fb_executor.scrape_queries(queries_to_run, max_posts=20)
+            # 2. Eksekusi scraping untuk setiap query sekaligus (Tingkatkan kapasitas data)
+            queries_to_run = queries[:15]
+            posts = await self.fb_executor.scrape_queries(queries_to_run, max_posts=50)
             
             # 3. Simpan ke database raw_items
             for p in posts:
