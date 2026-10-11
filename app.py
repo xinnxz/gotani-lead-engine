@@ -210,6 +210,74 @@ st.markdown("""
         color: #101828 !important;
     }
 
+    /* Embedded Dismissable Notification Alert (Inside Area) */
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-success) {
+        background-color: #ecfdf3 !important;
+        border: 1px solid #abefc6 !important;
+        border-radius: 6px !important;
+        padding: 8px 14px !important;
+        margin-bottom: 16px !important;
+        align-items: center !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-info) {
+        background-color: #eff8ff !important;
+        border: 1px solid #b2ddff !important;
+        border-radius: 6px !important;
+        padding: 8px 14px !important;
+        margin-bottom: 16px !important;
+        align-items: center !important;
+    }
+    div[data-testid="stColumn"]:has(.notify-marker-success),
+    div[data-testid="stColumn"]:has(.notify-marker-info) {
+        display: flex !important;
+        align-items: center !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-success) div[data-testid="stVerticalBlock"],
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-info) div[data-testid="stVerticalBlock"] {
+        gap: 0 !important;
+    }
+    div[data-testid="stColumn"]:has(.notify-close-marker) {
+        display: flex !important;
+        justify-content: flex-end !important;
+        align-items: center !important;
+        min-width: 28px !important;
+    }
+    div[data-testid="stColumn"]:has(.notify-close-marker) .stButton {
+        width: auto !important;
+    }
+    div[data-testid="stColumn"]:has(.notify-close-marker) .stButton>button {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: #475467 !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        padding: 0px 4px !important;
+        min-height: 0 !important;
+        min-width: 0 !important;
+        height: auto !important;
+        width: auto !important;
+        line-height: 1 !important;
+        cursor: pointer !important;
+    }
+    div[data-testid="stColumn"]:has(.notify-close-marker) .stButton>button:hover {
+        color: #0f172a !important;
+        background: transparent !important;
+        border: none !important;
+    }
+    div[data-testid="stColumn"]:has(.notify-close-marker) .stButton>button:active,
+    div[data-testid="stColumn"]:has(.notify-close-marker) .stButton>button:focus {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    div[data-testid="stColumn"]:has(.notify-close-marker) p {
+        font-size: 13px !important;
+        line-height: 1 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {
         background-color: #ffffff;
@@ -542,21 +610,35 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# Notifikasi Aksi (Dismissable dengan tombol ✕ / Close)
+# Notifikasi Aksi (Dismissable dengan tombol ✕ di dalam area alert)
 if st.session_state.get("notify_success"):
-    c_alert, c_btn = st.columns([0.96, 0.04])
+    c_alert, c_btn = st.columns([0.97, 0.03])
     with c_alert:
-        st.success(st.session_state["notify_success"])
+        st.markdown(
+            f'<div class="notify-marker-success" style="display:none;"></div>'
+            f'<div style="color:#027a48; font-size:13px; font-weight:500; line-height:1.4;">'
+            f'{st.session_state["notify_success"]}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
     with c_btn:
+        st.markdown('<div class="notify-close-marker" style="display:none;"></div>', unsafe_allow_html=True)
         if st.button("✕", key="btn_close_notify_success", help="Tutup notifikasi"):
             del st.session_state["notify_success"]
             st.rerun()
 
 if st.session_state.get("notify_info"):
-    c_alert, c_btn = st.columns([0.96, 0.04])
+    c_alert, c_btn = st.columns([0.97, 0.03])
     with c_alert:
-        st.info(st.session_state["notify_info"])
+        st.markdown(
+            f'<div class="notify-marker-info" style="display:none;"></div>'
+            f'<div style="color:#175cd3; font-size:13px; font-weight:500; line-height:1.4;">'
+            f'{st.session_state["notify_info"]}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
     with c_btn:
+        st.markdown('<div class="notify-close-marker" style="display:none;"></div>', unsafe_allow_html=True)
         if st.button("✕", key="btn_close_notify_info", help="Tutup notifikasi"):
             del st.session_state["notify_info"]
             st.rerun()
@@ -762,10 +844,17 @@ with tab2:
                 st.rerun()
 
     if st.session_state.get("notify_match"):
-        c_m_alert, c_m_btn = st.columns([0.96, 0.04])
+        c_m_alert, c_m_btn = st.columns([0.97, 0.03])
         with c_m_alert:
-            st.success(st.session_state["notify_match"])
+            st.markdown(
+                f'<div class="notify-marker-success" style="display:none;"></div>'
+                f'<div style="color:#027a48; font-size:13px; font-weight:500; line-height:1.4;">'
+                f'{st.session_state["notify_match"]}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
         with c_m_btn:
+            st.markdown('<div class="notify-close-marker" style="display:none;"></div>', unsafe_allow_html=True)
             if st.button("✕", key="btn_close_notify_match", help="Tutup notifikasi"):
                 del st.session_state["notify_match"]
                 st.rerun()
