@@ -37,8 +37,10 @@ class FacebookExecutor:
         search_queries = []
         for q in queries:
             if q.strip():
-                # Gunakan dorking Google untuk memfokuskan pencarian ke Facebook
-                search_queries.append(f"site:facebook.com {q}")
+                # Dorking Google yang diprioritaskan mencari postingan spesifik (posts / permalink)
+                # agar link yang didapat mengarah ke postingan orang, bukan cuma beranda grup
+                search_queries.append(f'site:facebook.com/groups/* (inurl:posts OR inurl:permalink OR inurl:story) "{q.strip()}"')
+                search_queries.append(f'site:facebook.com "{q.strip()}"')
                 
         if not search_queries:
             logger.warning("Tidak ada query pencarian yang valid. Membatalkan request Apify.")

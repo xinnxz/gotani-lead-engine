@@ -247,6 +247,18 @@ with tab1:
                 return ""
                 
         df_leads["Kualitas"] = df_leads["Atribut"].apply(extract_variety)
+        
+        # Deteksi apakah URL mengarah ke postingan spesifik atau grup komunitas
+        def detect_link_label(url_str):
+            if not url_str: return "🌐 Buka Web"
+            u = str(url_str).lower()
+            if "/posts/" in u or "/permalink/" in u or "story.php" in u:
+                return "🔗 Postingan Spesifik"
+            elif "/groups/" in u:
+                return "👥 Grup Komunitas"
+            return "🔗 Buka Sumber"
+            
+        df_leads["Label_Sumber"] = df_leads["URL"].apply(detect_link_label)
 
         # Header aksi unduh & reviewer
         top_c1, top_c2 = st.columns([1, 3])
@@ -275,8 +287,9 @@ with tab1:
                 "Rel_Score": st.column_config.ProgressColumn("Relevansi", min_value=0, max_value=100, format="%d%%"),
                 "Conf_Score": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=100, format="%d%%"),
                 "Review": st.column_config.TextColumn("Status", width="small"),
+                "Label_Sumber": st.column_config.TextColumn("Tipe Sumber", width="small"),
                 "Extractor": st.column_config.TextColumn("Sistem", width="small"),
-                "URL": st.column_config.LinkColumn("Sumber Data", display_text="Buka Tautan"),
+                "URL": st.column_config.LinkColumn("Tautan Asli", display_text="Buka Tautan"),
             },
         )
 
