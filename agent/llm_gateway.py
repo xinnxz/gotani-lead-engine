@@ -40,7 +40,10 @@ class LLMGateway:
     def __init__(self, conn: sqlite3.Connection, api_key: str | None = None, model: str | None = None):
         self.conn = conn
         self.api_key = (api_key or settings.gemini_api_key or "").strip()
-        self.model = model or settings.gemini_model
+        raw_model = model or settings.gemini_model or "gemini-2.5-flash"
+        if "3.8" in raw_model or not raw_model.startswith("gemini-"):
+            raw_model = "gemini-2.5-flash"
+        self.model = raw_model
         self._client = None
 
     @property
@@ -59,9 +62,13 @@ class LLMGateway:
 
     def _client_get(self):
         if self._client is None:
-            from google import genai  # import di sini supaya mode offline tidak butuh library ini
+            from google import genai
+            from google.genai import types
 
-            self._client = genai.Client(api_key=self.api_key)
+            self._client = genai.Client(
+                api_key=self.api_key,
+                http_options=types.HttpOptions(timeout=15000),
+            )
         return self._client
 
     def _log(self, purpose: str, tin: int, tout: int, ok: bool, error: str | None = None) -> None:
