@@ -78,7 +78,7 @@ class Pipeline:
             
             # 4. Ambil raw_items yang belum diproses (belum masuk listings)
             cur = self.conn.execute(
-                "SELECT id, raw_text, platform, url FROM raw_items WHERE campaign_id=? AND id NOT IN (SELECT raw_item_id FROM listings)",
+                "SELECT id, raw_text, platform, url, fetched_at FROM raw_items WHERE campaign_id=? AND id NOT IN (SELECT raw_item_id FROM listings)",
                 (self.campaign.campaign_id,)
             )
             unprocessed = cur.fetchall()
@@ -138,7 +138,7 @@ class Pipeline:
                         # kita TETAP harus menyimpannya ke database agar tidak diulang-ulang (hemat token).
                         result = {"intent": "other", "extractor": "llm_rejected"}
                         
-                    row = batch[j]
+                    row = dict(batch[j])
                     mapping = pii_mappings[j]
                     raw_text = raw_texts[j]
                     
@@ -166,7 +166,7 @@ class Pipeline:
                     # Tanggal ketersediaan/panen kalender
                     avail_phrase, avail_date = parse_available(
                         result.get("available_text") or raw_text,
-                        posted_at=row.get("posted_at") if "posted_at" in row.keys() else None
+                        posted_at=row.get("posted_at") or row.get("fetched_at")
                     )
                     result["available_text"] = avail_phrase or result.get("available_text")
                     result["available_date"] = avail_date
