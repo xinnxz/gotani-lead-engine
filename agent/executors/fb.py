@@ -35,12 +35,16 @@ class FacebookExecutor:
         run_url = f"https://api.apify.com/v2/acts/apify~google-search-scraper/runs?token={self.api_key}"
         
         search_queries = []
+        # Negative keywords untuk membuang spam (bibit, pupuk, lowongan kerja, resep)
+        negatives = "-bibit -benih -pupuk -obat -loker -lowongan -resep -jus -olahan -jasa"
+        
         for q in queries:
             if q.strip():
-                # Dorking Google yang diprioritaskan mencari postingan spesifik (posts / permalink)
-                # agar link yang didapat mengarah ke postingan orang, bukan cuma beranda grup
-                search_queries.append(f'site:facebook.com/groups/* (inurl:posts OR inurl:permalink OR inurl:story) "{q.strip()}"')
-                search_queries.append(f'site:facebook.com "{q.strip()}"')
+                clean_q = q.strip()
+                # 1. Target spesifik ke postingan di dalam grup
+                search_queries.append(f'site:facebook.com/groups/* (inurl:posts OR inurl:permalink) "{clean_q}" {negatives}')
+                # 2. Target umum ke facebook
+                search_queries.append(f'site:facebook.com "{clean_q}" {negatives}')
                 
         if not search_queries:
             logger.warning("Tidak ada query pencarian yang valid. Membatalkan request Apify.")

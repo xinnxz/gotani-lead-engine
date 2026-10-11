@@ -4,13 +4,34 @@ from __future__ import annotations
 from . import wilayah
 from .campaign import CampaignSpec
 
-GROUP_PATTERNS_SUPPLY = ["{p} {r}", "petani {p} {r}", "jual beli hasil tani {r}"]
-GROUP_PATTERNS_DEMAND = ["{p} {r}", "pedagang {p} {r}", "jual beli hasil bumi {r}"]
-PROVINCE_PATTERNS = ["komunitas petani {p} {prov}", "{p} {prov}", "jual beli {p} {prov}"]
+# Pola query transaksi spesifik (Fokus transaksi nyata, bukan sekadar obrolan)
+GROUP_PATTERNS_SUPPLY = [
+    "jual {p} {r}",
+    "panen {p} {r}",
+    "ready {p} {r}",
+    "petani {p} {r}"
+]
+
+GROUP_PATTERNS_DEMAND = [
+    "cari {p} {r}",
+    "butuh {p} {r}",
+    "tampung {p} {r}",
+    "beli {p} {r}"
+]
+
+PROVINCE_PATTERNS = [
+    "jual {p} {prov}",
+    "panen {p} {prov}",
+    "komunitas {p} {prov}"
+]
+
 INTENT_WORDS = {
-    "supply": ["jual", "panen", "ready", "stok"],
-    "demand": ["cari", "butuh", "terima", "beli"],
+    "supply": ["jual", "panen", "ready", "stok", "borongan"],
+    "demand": ["cari", "butuh", "terima", "beli", "tampung"],
 }
+
+# Kata kunci negatif untuk menyaring sampah dari Google Search
+NEGATIVE_KEYWORDS = "-bibit -benih -pupuk -obat -loker -lowongan -resep -jus -olahan -jasa -mesin"
 
 
 def expand_regions(spec: CampaignSpec) -> list[dict]:
