@@ -88,18 +88,28 @@ def build_group_queries(spec: CampaignSpec, max_queries: int | None = None) -> l
         for pat in patterns:
             add(pat.format(p=p, r=r["nama"]), wilayah.label(r))
             
-    # FALLBACK: Jika lokasi tidak ada di database wilayah.json (misal luar Jawa Timur),
+    # FALLBACK 1: Jika lokasi tidak ada di database wilayah.json (misal luar Jawa Timur),
     # gunakan teks lokasi mentah yang diinputkan dari spec.location.include
-    if not regions and not spec.provinces():
+    if not regions and not spec.provinces() and spec.location.include:
         for loc in spec.location.include:
             for pat in patterns:
                 # loc adalah string mentah misal "Kab. Cianjur"
                 add(pat.format(p=p, r=loc), loc)
 
+    # FALLBACK 2: Jika user SAMA SEKALI tidak menyebutkan lokasi (lokasi kosong),
+    # buat query skala nasional agar pipeline tidak macet!
+    if not queries:
+        for w in INTENT_WORDS.get(spec.target_intent, ["jual", "panen"]):
+            add(f"{w} {p}", "Indonesia (Nasional)")
+        add(f"petani {p}", "Indonesia (Nasional)")
+        add(f"komunitas {p}", "Indonesia (Nasional)")
+
     for syn in spec.product.synonyms:
         if syn.lower() != p:
             for prov in spec.provinces():
                 add(f"{syn} {prov}", prov)
+            if not spec.provinces():
+                add(f"jual {syn}", "Indonesia (Nasional)")
     return queries[:max_queries] if max_queries else queries
 
 
