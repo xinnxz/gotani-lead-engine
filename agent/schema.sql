@@ -148,3 +148,37 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS idx_raw_campaign ON raw_items (campaign_id, processed);
 CREATE INDEX IF NOT EXISTS idx_listing_campaign ON listings (campaign_id);
 CREATE INDEX IF NOT EXISTS idx_source_platform ON source_registry (platform, commodity);
+
+-- Matchmaking supply ↔ demand (PRD §8 / §7.6)
+CREATE TABLE IF NOT EXISTS matches (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    demand_listing_id     INTEGER NOT NULL,
+    kind                  TEXT NOT NULL DEFAULT 'single', -- single | pool
+    score                 INTEGER NOT NULL,              -- skor kecocokan (0–100)
+    score_breakdown_json  TEXT,                          -- poin per faktor + keterangan
+    gaps_json             TEXT,                          -- kekurangan (misal: grade tidak disebut)
+    total_volume_kg       REAL,
+    coverage_pct          REAL DEFAULT 100.0,            -- % volume pembeli yang terpenuhi
+    est_margin_json       TEXT,                          -- estimasi margin GoTani 8-12%
+    tier                  TEXT NOT NULL,                 -- outreach | review | ignored
+    status                TEXT NOT NULL DEFAULT 'open',  -- open | confirmed | dismissed | closed
+    outcome               TEXT,                          -- deal | no_deal (F6.6)
+    outcome_reason        TEXT,
+    rule_version          TEXT NOT NULL DEFAULT 'v1',
+    signature             TEXT NOT NULL UNIQUE,          -- kunci idempoten (demand_id + sorted supply_ids)
+    created_at            TEXT NOT NULL,
+    updated_at            TEXT NOT NULL
+);
+
+-- Relasi item supply yang terlibat dalam match (mendukung 1-ke-1 maupun pooling)
+CREATE TABLE IF NOT EXISTS match_items (
+    match_id              INTEGER NOT NULL,
+    supply_listing_id     INTEGER NOT NULL,
+    allocated_kg          REAL,
+    distance_km           REAL,
+    PRIMARY KEY (match_id, supply_listing_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_match_demand ON matches (demand_listing_id);
+CREATE INDEX IF NOT EXISTS idx_match_tier ON matches (tier, status);
+

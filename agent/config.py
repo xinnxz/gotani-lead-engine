@@ -48,6 +48,13 @@ class Settings:
     fb_settle_ms: int
     fb_rescan_hours: int
 
+    # --- Matchmaking & Pooling (PRD §7.6, Fase 2) ---
+    match_tier_outreach_min: int
+    match_tier_review_min: int
+    match_margin_default_pct: float
+    match_max_pool_farmers: int
+    match_max_pool_radius_km: float
+
     # --- Path ---
     db_path: Path
     profiles_dir: Path
@@ -72,7 +79,13 @@ class Settings:
             fb_max_pages_per_day=_int("FB_MAX_PAGES_PER_DAY", 300),
             fb_settle_ms=_int("FB_SETTLE_MS", 4000),
             fb_rescan_hours=_int("FB_RESCAN_HOURS", 12),
+            match_tier_outreach_min=_int("MATCH_TIER_OUTREACH_MIN", 80),
+            match_tier_review_min=_int("MATCH_TIER_REVIEW_MIN", 50),
+            match_margin_default_pct=_float("MATCH_MARGIN_DEFAULT_PCT", 0.10),
+            match_max_pool_farmers=_int("MATCH_MAX_POOL_FARMERS", 4),
+            match_max_pool_radius_km=_float("MATCH_MAX_POOL_RADIUS_KM", 50.0),
             db_path=ROOT / os.getenv("DB_PATH", "data/gotani.db"),
+
             profiles_dir=ROOT / "profiles",
             exports_dir=ROOT / "exports",
             logs_dir=ROOT / "logs",
