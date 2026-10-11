@@ -19,6 +19,13 @@ from agent.match_runner import (
 )
 from agent.db import save_manual_order
 from agent.caller_lookup import lookup_caller
+from agent.outreach import (
+    format_wa_url,
+    draft_farmer_outreach_for_match,
+    draft_farmer_outreach_for_lead,
+    draft_buyer_outreach_for_match,
+    build_matches_export_dataframe,
+)
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
@@ -487,6 +494,7 @@ with tab1:
     query_str = """
         SELECT
             l.id,
+            l.entity_name AS Nama,
             l.intent AS Intent,
             l.product AS Komoditas,
             l.attributes_json AS Atribut,
@@ -515,18 +523,20 @@ with tab1:
     if df_leads.empty:
         st.info("Belum ada data prospek yang memenuhi kriteria filter saat ini.")
     else:
-        def make_wa_link(phone):
-            if not phone: return None
-            p = str(phone).split(',')[0].strip().replace(" ", "").replace("-", "")
-            if p.startswith("08"):
-                return f"https://wa.me/62{p[1:]}"
-            elif p.startswith("62"):
-                return f"https://wa.me/{p}"
-            elif p.startswith("+62"):
-                return f"https://wa.me/{p[1:]}"
-            return None
+        def make_lead_wa_link(row):
+            phone = row.get("Telepon")
+            if not phone:
+                return None
+            msg = draft_farmer_outreach_for_lead(
+                farmer_name=row.get("Nama"),
+                commodity=str(row.get("Komoditas") or "hasil tani"),
+                farmer_location=row.get("Lokasi"),
+                volume_kg=row.get("Volume_Kg"),
+                price_per_kg=row.get("Harga_Kg"),
+            )
+            return format_wa_url(phone, msg)
         
-        df_leads["Chat_WA"] = df_leads["Telepon"].apply(make_wa_link)
+        df_leads["Chat_WA"] = df_leads.apply(make_lead_wa_link, axis=1)
         
         def extract_variety(attr_json):
             if not attr_json: return ""
@@ -643,7 +653,7 @@ with tab2:
     with m_act1:
         if st.button("Jalankan Matchmaking", type="primary", help="Hitung skor kecocokan semua order pembeli terhadap penawaran petani"):
             with st.spinner("Menghitung kecocokan dan menyusun smart pool..."):
-                m_stats = run_all_matches(conn, include_pending_high_score=True)
+                m_stats = run_all_matches(conn, include_pending_high_score=include_pending)
                 st.success(f"Selesai: {m_stats['matches_created']} match tunggal dan {m_stats['pools_created']} smart pool berhasil dihitung.")
                 st.rerun()
 
@@ -692,7 +702,19 @@ with tab2:
     if not matches_list:
         st.info("Belum ada data match yang memenuhi kriteria filter. Klik tombol 'Jalankan Matchmaking' di atas.")
     else:
-        st.caption(f"Menampilkan {len(matches_list)} hasil rekomendasi pasangan:")
+        top_exp1, top_exp2 = st.columns([3, 1.3])
+        with top_exp1:
+            st.caption(f"Menampilkan {len(matches_list)} hasil rekomendasi pasangan:")
+        with top_exp2:
+            df_export = build_matches_export_dataframe(matches_list)
+            csv_matches = df_export.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "Export Match Report (CSV)",
+                data=csv_matches,
+                file_name=f"matchmaking_report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
 
         for m in matches_list:
             is_pool = (m["kind"] == "pool")
@@ -737,8 +759,24 @@ with tab2:
                             st.caption(f"Alokasi: {it.get('allocated_kg', 0):g} kg | Harga: {price_str}")
                             if it.get("distance_km"):
                                 st.caption(f"Estimasi Jarak: {it['distance_km']} km")
-                            if it.get("farmer_wa"):
-                                st.markdown(f"[Hubungi WhatsApp]({it['farmer_wa']})")
+                            
+                            farmer_draft = draft_farmer_outreach_for_match(
+                                farmer_name=it.get('farmer_name'),
+                                commodity=m['product'],
+                                farmer_location=it.get('farmer_location'),
+                                buyer_name=m['buyer_name'],
+                                buyer_location=m['buyer_location'],
+                                needed_vol_kg=it.get('allocated_kg') or m['buyer_vol'],
+                                farmer_price=it.get('farmer_price'),
+                            )
+                            farmer_wa_url = format_wa_url(it.get('farmer_phone') or it.get('farmer_wa'), farmer_draft)
+                            if farmer_wa_url:
+                                st.markdown(f"[Hubungi WhatsApp]({farmer_wa_url})")
+                                with st.popover("Draf Pesan"):
+                                    st.caption("Draf otomatis yang terisi di WhatsApp:")
+                                    st.code(farmer_draft, language="text")
+                            elif it.get("farmer_phone"):
+                                st.caption(f"Telp: {it['farmer_phone']}")
 
                 if is_pool:
                     disclaimer_text = m.get("breakdown", {}).get("disclaimer")
@@ -759,12 +797,30 @@ with tab2:
                         for g in gaps:
                             st.caption(f"- {g}")
 
-                act_c1, act_c2, act_c3 = st.columns([1.5, 2, 2.5])
+                act_c1, act_c2, act_c3 = st.columns([1.8, 1.8, 2.4])
                 with act_c1:
-                    if m.get("buyer_wa"):
-                        st.markdown(f"[Hubungi Pembeli via WhatsApp]({m['buyer_wa']})")
+                    margin_info = m.get("margin", {}) or {}
+                    suggested_price = margin_info.get("suggested_price") or m.get("buyer_max_price")
+                    farmer_locations = [it.get("farmer_location") for it in m.get("items", [])]
+                    buyer_draft = draft_buyer_outreach_for_match(
+                        buyer_name=m['buyer_name'],
+                        commodity=m['product'],
+                        buyer_location=m['buyer_location'],
+                        needed_vol_kg=m['buyer_vol'],
+                        suggested_price=suggested_price,
+                        is_pool=is_pool,
+                        num_farmers=len(m.get("items", [])),
+                        farmer_locations=farmer_locations,
+                    )
+                    buyer_wa_url = format_wa_url(m.get("buyer_phone") or m.get("buyer_wa"), buyer_draft)
+                    if buyer_wa_url:
+                        st.markdown(f"[Hubungi Pembeli via WhatsApp]({buyer_wa_url})")
+                        with st.popover("Draf Penawaran"):
+                            st.caption("Draf penawaran otomatis untuk pembeli:")
+                            st.code(buyer_draft, language="text")
                     else:
                         st.caption("Kontak pembeli belum tersedia")
+
 
                 with act_c2:
                     if m["status"] == "open":
