@@ -14,6 +14,13 @@ PROVINCE_ALIASES = {
     "jatim": "Jawa Timur",
     "jawatimur": "Jawa Timur",
     "east java": "Jawa Timur",
+    "jabodetabek": "Jabodetabek",
+    "jakarta": "DKI Jakarta",
+    "dki jakarta": "DKI Jakarta",
+    "jawa barat": "Jawa Barat",
+    "jabar": "Jawa Barat",
+    "jawa tengah": "Jawa Tengah",
+    "jateng": "Jawa Tengah",
 }
 
 
@@ -90,6 +97,8 @@ def find_regions_in_text(text: str) -> list[dict]:
                     seen.add(pick["kode"])
                     found.append((m.start(), pick))
     found.sort(key=lambda x: x[0])
+    if not found and "jabodetabek" in low:
+        return [{"kode": "31.00", "nama": "Jabodetabek", "jenis": "wilayah", "provinsi": "Jabodetabek"}]
     return [r for _, r in found]
 
 

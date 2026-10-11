@@ -53,10 +53,11 @@ class FacebookExecutor:
             # 2. Target Web B2B / Supplier / Direktori Agribisnis
             elif any(k in lower_q for k in ["supplier", "kemitraan", "eksportir", "forwarder", "direktori"]):
                 search_queries.append(f'"{clean_q}" -site:facebook.com {negatives}')
-            # 3. Target Grup Facebook & Halaman Agribisnis
+            # 3. Target Grup Facebook & Komunitas Agribisnis
             else:
-                search_queries.append(f'site:facebook.com/groups/* (inurl:posts OR inurl:permalink) "{clean_q}" {negatives}')
-                search_queries.append(f'site:facebook.com "{clean_q}" {negatives}')
+                search_queries.append(f'site:facebook.com/groups {clean_q} (ready OR panen OR jual OR petik OR diobral) (wa OR "08") {negatives}')
+                search_queries.append(f'site:facebook.com/groups "petani {clean_q}" {negatives}')
+                search_queries.append(f'site:facebook.com {clean_q} (panen OR ready OR jual) ("wa" OR "08") {negatives}')
 
                 
         if not search_queries:

@@ -21,8 +21,21 @@ from agent.match_runner import run_all_matches
 
 CAMPAIGN_ID = "demo_melon_jatim"
 
-# 20 Data Petani (Supply) dengan variasi lokasi Jawa Timur
+# 20 Data Petani (Supply) dengan variasi lokasi Jawa Timur & Komunitas Riil
 FARMER_POSTS = [
+    # 0. Flagship Riil Komunitas Petani Melon Greenhouse (Agung Kurniawan - Inthanon, Jabodetabek)
+    {
+        "text": "Agung Kurniawan\nKOMUNITAS PETANI MELON GREENHOUSE\nMelon inthanon nya ready yuu bobot 500-1.4kg.. diobral pengiriman area jabodetabek. Semoga ada yang pinang yuu ..\nWa : 081770170496",
+        "entity": "Agung Kurniawan",
+        "product": "melon",
+        "variety": "inthanon",
+        "vol": 500.0,
+        "price": 8500.0,
+        "kab": "Jabodetabek",
+        "phone": "081770170496",
+        "days_ahead": 0,
+        "url": "https://www.facebook.com/groups/1572906949816375/",
+    },
     # 1. Match 1-ke-1 Ideal (Pak Budi Jombang - Madesta, 600kg, 7.500/kg)
     {
         "text": "Panen melon Madesta lusa, ada sekitar 600 kg. Buah mulus jaring rapat. Harga Rp 7.500/kg nego tipis. Area Jombang siap angkut di kebun. Hub WA 081234567890",
@@ -353,6 +366,18 @@ ADDITIONAL_RAW_SCRAPED = [
 
 # 5 Kebutuhan Pembeli Nyata (Demand)
 BUYER_ORDERS = [
+    # 0. Kebutuhan Melon Inthanon Greenhouse (Jabodetabek)
+    {
+        "name": "Sentra Buah Segar Jabodetabek",
+        "product": "melon",
+        "variety": "inthanon",
+        "vol": 500.0,
+        "max_price": 10000.0,
+        "kab": "Jabodetabek",
+        "phone": "081211223344",
+        "days_ahead": 2,
+        "url": "https://maps.google.com/?q=Sentra+Buah+Segar+Jabodetabek",
+    },
     # 1. Memicu MATCH 1-KE-1 SEMPURNA (Pak Budi Jombang -> Surabaya ~65 km)
     {
         "name": "PT Segar Buah Nusantara (Surabaya)",

@@ -85,10 +85,20 @@ def extract(text: str, spec: CampaignSpec, posted_at: str | None = None) -> dict
             evidence["product"] = text[m.start(): m.end()]
             break
 
+    COMMON_VARIETIES = {
+        "melon": ["inthanon", "madesta", "golden", "action", "alisha", "rock", "fujian", "kirani", "hamigua"],
+        "cabai": ["rawit", "keriting", "merah besar", "ori 212"],
+        "bawang": ["merah", "putih", "probolinggo", "brebes", "nganjuk"],
+        "semangka": ["inul", "non biji", "kuning", "merah"],
+        "pisang": ["cavendish", "ambon", "raja", "kepok"],
+    }
+
     variety = None
-    for v in spec.product.attributes.get("variety") or []:
+    spec_vars = spec.product.attributes.get("variety") or []
+    candidate_vars = spec_vars + COMMON_VARIETIES.get((product or "").lower(), [])
+    for v in candidate_vars:
         if v and re.search(rf"\b{re.escape(v.lower())}\b", low):
-            variety = v
+            variety = v.capitalize()
             evidence["variety"] = v
             break
 
@@ -124,9 +134,25 @@ def extract(text: str, spec: CampaignSpec, posted_at: str | None = None) -> dict
     if any(re.search(p, low) for p in RESELLER_PATTERNS):
         flags.append("reseller")
 
+    # Ekstraksi Nama Petani / Pemosting
+    entity_name = None
+    lines = [line.strip() for line in (text or "").split("\n") if line.strip()]
+    forbidden_words = {
+        "jual", "beli", "panen", "ready", "komunitas", "grup", "group",
+        "order", "resep", "butuh", "wa", "hub", "wa:", "diobral", "harga"
+    }
+    if lines:
+        for candidate in lines[:2]:
+            words = candidate.split()
+            c_low_words = [w.lower().strip(":,.-_") for w in words]
+            if 1 <= len(words) <= 4 and not any(w in forbidden_words for w in c_low_words):
+                if candidate[0].isupper() and not any(char in candidate for char in [":", "/", "\\", "@", "http"]):
+                    entity_name = candidate
+                    break
+
     return {
         "intent": intent,
-        "entity_name": None,
+        "entity_name": entity_name,
         "product": product,
         "variety": variety,
         "grade": grade,

@@ -719,22 +719,20 @@ with tab1:
         df_leads["Chat_WA"] = df_leads.apply(make_lead_wa_link, axis=1)
         
         def extract_variety(attr_json):
-            if not attr_json: return ""
-            try:
-                data = json.loads(attr_json)
-                variety = data.get("variety", [])
-                grade = data.get("grade")
-                res = []
-                if variety: res.append(f"Varietas: {', '.join(variety)}")
-                if grade: res.append(f"Grade: {grade}")
-                return " | ".join(res)
-            except Exception:
+            data = db.loads(attr_json, default={})
+            if not data or not isinstance(data, dict):
                 return ""
+            variety = data.get("variety", [])
+            grade = data.get("grade")
+            res = []
+            if variety: res.append(f"Varietas: {', '.join(variety)}")
+            if grade: res.append(f"Grade: {grade}")
+            return " | ".join(res)
                 
         df_leads["Kualitas"] = df_leads["Atribut"].apply(extract_variety)
         
         def detect_link_label(url_str):
-            if not url_str: return "Buka Sumber"
+            if not url_str or not isinstance(url_str, str): return "Buka Sumber"
             u = str(url_str).lower()
             if "/posts/" in u or "/permalink/" in u or "story.php" in u:
                 return "Postingan Spesifik"
@@ -809,8 +807,9 @@ with tab1:
 
         with st.expander("Rincian Kalkulasi Skor"):
             for _, row in df_leads.iterrows():
-                reasons = json.loads(row["Alasan_Skor"]) if row["Alasan_Skor"] else {}
-                if reasons:
+                raw_reasons = row.get("Alasan_Skor")
+                reasons = db.loads(raw_reasons, default={})
+                if reasons and isinstance(reasons, dict):
                     st.markdown(f"**Data #{row['id']}** | {row['Komoditas']} ({row['Lokasi']}) | Status: `{row['Review']}`")
                     col_r, col_c = st.columns(2)
                     with col_r:
