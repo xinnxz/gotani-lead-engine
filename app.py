@@ -709,7 +709,7 @@ with tab2:
                         <div>
                             <span class="apify-pill {kind_class}">{kind_label}</span>
                             <span class="apify-pill {tier_class}"><span class="dot {tier_dot}"></span> {tier_label}</span>
-                            <h4 style="margin:8px 0 2px 0; color:#101828;">{m['buyer_name']} — {m['buyer_location']}</h4>
+                            <h4 style="margin:8px 0 2px 0; color:#101828;">{m['buyer_name']} ({m['buyer_location']})</h4>
                             <span style="font-size:12px; color:#64748b;">
                                 Komoditas: <b>{m['product'].title()}</b> | Kebutuhan: <b>{m['buyer_vol']:g} kg</b> | 
                                 Anggaran Maksimal: <b>{f'Rp {m["buyer_max_price"]:,.0f}/kg' if m.get('buyer_max_price') else 'Belum ditentukan'}</b>
