@@ -1,5 +1,6 @@
 import streamlit as st
 import asyncio
+import time
 import pandas as pd
 import json
 import subprocess
@@ -355,13 +356,18 @@ with st.sidebar:
                 raw_spec = json.loads(edited_spec_json)
                 c = CampaignSpec.model_validate(raw_spec)
                 save_campaign(conn, c)
-                with st.spinner("Menjalankan pipeline Apify dan Gemini..."):
-                    pipe = Pipeline(c)
+                with st.status("Menjalankan Pipeline Inteligensi Pasar...", expanded=True) as status_box:
+                    def on_progress(step_title: str, detail_text: str):
+                        status_box.write(f"[{datetime.now().strftime('%H:%M:%S')}] **{step_title}**: {detail_text}")
+
+                    pipe = Pipeline(c, progress_callback=on_progress)
                     asyncio.run(pipe.run())
+                    status_box.update(label="Pipeline Berhasil Selesai!", state="complete", expanded=False)
                     st.success("Pipeline berhasil diselesaikan.")
+                    time.sleep(1)
                     st.rerun()
             except Exception as e:
-                st.error(f"Kesalahan: {e}")
+                st.error(f"Kesalahan pada eksekusi pipeline: {e}")
 
     # --- Section: Handoff Detection ---
     st.divider()
@@ -884,8 +890,9 @@ with tab3:
         )
 
 
-# ================= TAB 4: RIWAYAT KAMPANYE =================
+# ================= TAB 4: RIWAYAT KAMPANYE & RUN LOG =================
 with tab4:
+    st.markdown("##### Riwayat Kampanye Pencarian")
     try:
         campaigns = list_campaigns(conn)
         if campaigns:
@@ -898,3 +905,43 @@ with tab4:
             st.caption("Belum ada riwayat kampanye.")
     except Exception:
         st.caption("Belum ada riwayat kampanye.")
+
+    st.write("")
+    st.markdown("##### Log Eksekusi Pipeline (Apify & AI Runs)")
+    try:
+        df_runs = pd.read_sql_query("""
+            SELECT
+                id AS Run_ID,
+                campaign_id AS Campaign,
+                step AS Tahap,
+                platform AS Platform,
+                status AS Status,
+                items_found AS Item_Ditemukan,
+                started_at AS Waktu_Mulai,
+                finished_at AS Waktu_Selesai,
+                error AS Catatan_Error
+            FROM runs
+            ORDER BY id DESC LIMIT 50
+        """, conn)
+
+        if not df_runs.empty:
+            st.dataframe(
+                df_runs,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Run_ID": st.column_config.NumberColumn("#", width="small"),
+                    "Campaign": st.column_config.TextColumn("Campaign", width="medium"),
+                    "Tahap": st.column_config.TextColumn("Tahap", width="small"),
+                    "Platform": st.column_config.TextColumn("Platform", width="small"),
+                    "Status": st.column_config.TextColumn("Status", width="small"),
+                    "Item_Ditemukan": st.column_config.NumberColumn("Item Ditemukan", width="small"),
+                    "Waktu_Mulai": st.column_config.TextColumn("Mulai", width="medium"),
+                    "Waktu_Selesai": st.column_config.TextColumn("Selesai", width="medium"),
+                    "Catatan_Error": st.column_config.TextColumn("Keterangan", width="large"),
+                }
+            )
+        else:
+            st.caption("Belum ada log eksekusi pipeline.")
+    except Exception as e:
+        st.caption(f"Gagal memuat log runs: {e}")

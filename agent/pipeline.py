@@ -18,11 +18,12 @@ from .dedup import find_duplicate
 logger = logging.getLogger(__name__)
 
 class Pipeline:
-    def __init__(self, campaign: CampaignSpec):
+    def __init__(self, campaign: CampaignSpec, progress_callback = None):
         self.campaign = campaign
         self.conn = db.connect()
         self.fb_executor = FacebookExecutor()
         self.llm = LLMGateway(self.conn)
+        self.progress_callback = progress_callback
 
     async def run(self):
         logger.info(f"Mulai pipeline untuk campaign: {self.campaign.campaign_id}")
@@ -33,14 +34,28 @@ class Pipeline:
             query_objs = build_group_queries(self.campaign)
             queries = [q["query"] for q in query_objs]
             logger.info(f"Dihasilkan {len(queries)} query: {queries}")
+            if self.progress_callback:
+                self.progress_callback(
+                    "Perencanaan Kata Kunci",
+                    f"Menghasilkan {len(queries)} query pencarian multi-kanal (Google Maps, Facebook, Web B2B) untuk komoditas '{self.campaign.product.name}'."
+                )
             
             raw_items_saved = 0
             
             # 2. Eksekusi scraping untuk setiap query sekaligus (Tingkatkan kapasitas data)
             queries_to_run = queries[:15]
-            posts = await self.fb_executor.scrape_queries(queries_to_run, max_posts=50)
+            posts = await self.fb_executor.scrape_queries(
+                queries_to_run,
+                max_posts=50,
+                progress_callback=self.progress_callback
+            )
             
             # 3. Simpan ke database raw_items
+            if self.progress_callback:
+                self.progress_callback(
+                    "Penyimpanan Raw Data",
+                    f"Menyimpan {len(posts)} postingan ke database lokal..."
+                )
             for p in posts:
                 saved = db.save_raw_item(
                     self.conn,
@@ -55,24 +70,42 @@ class Pipeline:
             
             db.finish_run(self.conn, run_id, status="success", items=raw_items_saved)
             logger.info(f"Berhasil scrape FB. Item baru tersimpan: {raw_items_saved}")
+            if self.progress_callback:
+                self.progress_callback(
+                    "Sinkronisasi Raw Data",
+                    f"Total {raw_items_saved} postingan unik berhasil ditambahkan ke database (duplikasi diabaikan)."
+                )
             
             # 4. Ambil raw_items yang belum diproses (belum masuk listings)
             cur = self.conn.execute(
-                "SELECT id, raw_text, platform FROM raw_items WHERE campaign_id=? AND id NOT IN (SELECT raw_item_id FROM listings)",
+                "SELECT id, raw_text, platform, url FROM raw_items WHERE campaign_id=? AND id NOT IN (SELECT raw_item_id FROM listings)",
                 (self.campaign.campaign_id,)
             )
             unprocessed = cur.fetchall()
             
             if not unprocessed:
                 logger.info("Tidak ada raw_items baru untuk diproses.")
+                if self.progress_callback:
+                    self.progress_callback("Ekstraksi AI", "Tidak ada postingan baru yang perlu diekstrak.")
                 return
 
-            logger.info(f"Memproses {len(unprocessed)} item untuk diekstrak...")
+            total_unprocessed = len(unprocessed)
+            batch_size = 5
+            total_batches = (total_unprocessed + batch_size - 1) // batch_size
+            logger.info(f"Memproses {total_unprocessed} item untuk diekstrak dalam {total_batches} batch...")
+            
+            new_leads_saved = 0
             
             # Batasi batch LLM agar hemat biaya
-            batch_size = 5
-            for i in range(0, len(unprocessed), batch_size):
+            for i in range(0, total_unprocessed, batch_size):
                 batch = unprocessed[i:i+batch_size]
+                batch_num = (i // batch_size) + 1
+                
+                if self.progress_callback:
+                    self.progress_callback(
+                        f"Ekstraksi AI (Batch {batch_num}/{total_batches})",
+                        f"Memproses {len(batch)} data postingan: mengekstrak entitas, komoditas, volume (kg), harga, kontak telepon, dan lokasi..."
+                    )
                 
                 raw_texts = [row["raw_text"] for row in batch]
                 
@@ -112,8 +145,6 @@ class Pipeline:
                     # Normalisasi angka
                     price = result.get("price_value")
                     price_unit = result.get("price_unit")
-                    # price adalah harga per satuan unit. 
-                    # Untuk mencari price per kg: price_per_kg = price / (berat 1 unit dalam kg)
                     unit_in_kg = to_kg(1.0, price_unit)
                     price_kg = (float(price) / unit_in_kg) if price and unit_in_kg else None
                     
@@ -140,13 +171,12 @@ class Pipeline:
                     result["available_text"] = avail_phrase or result.get("available_text")
                     result["available_date"] = avail_date
 
-                    # Restore PII untuk kontak (contoh sederhana)
+                    # Restore PII untuk kontak
                     phones = [val for key, val in mapping.items() if "PHONE" in key]
                     contact_phone = None
                     contact_wa = None
                     if phones:
                         contact_phone = ", ".join(phones)
-                        # Normalisasi nomor telepon pertama menjadi format WA (+62)
                         contact_wa = normalize_phone(phones[0])
                     result["contact_phone"] = contact_phone
                     result["contact_wa"] = contact_wa
@@ -193,13 +223,22 @@ class Pipeline:
                             result.get("extractor", "llm"), db.now_iso()
                         )
                     )
+                    new_leads_saved += 1
                 self.conn.commit()
-                logger.info(f"Batch {i//batch_size + 1} selesai diproses.")
+                logger.info(f"Batch {batch_num} selesai diproses.")
 
+            if self.progress_callback:
+                self.progress_callback(
+                    "Pipeline Selesai",
+                    f"Sukses! {raw_items_saved} raw items disimpan ke database, dan {new_leads_saved} prospek terverifikasi berhasil diproses AI."
+                )
 
         except Exception as e:
             logger.exception("Error pada pipeline.")
             db.finish_run(self.conn, run_id, status="error", error=str(e))
+            if self.progress_callback:
+                self.progress_callback("Kesalahan Eksekusi", f"Terjadi kesalahan: {e}")
+            raise
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

@@ -16,7 +16,7 @@ class FacebookExecutor:
         key = os.getenv("APIFY_API_KEY")
         self.api_key = key.strip() if key else None
 
-    async def scrape_queries(self, queries: List[str], max_posts: int = 10) -> List[Dict]:
+    async def scrape_queries(self, queries: List[str], max_posts: int = 10, progress_callback = None) -> List[Dict]:
         """
         Mengekstrak postingan Facebook menggunakan Apify API.
         Karena kita butuh kepastian data masuk, kita akan memberikan beberapa URL
@@ -24,6 +24,8 @@ class FacebookExecutor:
         """
         if not self.api_key:
             logger.error("APIFY_API_KEY belum dipasang!")
+            if progress_callback:
+                progress_callback("Apify Error", "APIFY_API_KEY belum dipasang di konfigurasi environment.")
             return []
             
         print("\n" + "="*50)
@@ -67,28 +69,39 @@ class FacebookExecutor:
             "resultsPerPage": max_posts
         }
         
+        if progress_callback:
+            progress_callback("Apify Cloud", f"Mengirim {len(search_queries)} variasi query ke Apify Google Search Scraper...")
+        
         try:
             resp = requests.post(run_url, json=payload, timeout=30)
             resp.raise_for_status()
         except Exception as e:
             logger.error(f"Gagal menghubungi Apify: {e}")
+            if progress_callback:
+                progress_callback("Apify Error", f"Gagal menghubungi API Apify: {e}")
             return []
             
         run_data = resp.json().get("data", {})
         run_id = run_data.get("id")
         dataset_id = run_data.get("defaultDatasetId")
         
-        print(f"✅ Apify mulai mencari kata kunci Anda di Cloud. (Run ID: {run_id})")
-        print("⏳ Menunggu mesin Apify mengekstrak hasil pencarian (biasanya butuh 30-60 detik)...")
+        print(f"[APIFY] Job dimulai di Cloud. (Run ID: {run_id})")
+        print("[APIFY] Menunggu mesin Apify mengekstrak hasil pencarian...")
+        if progress_callback:
+            progress_callback("Apify Ekstraksi", f"Job berjalan di Apify Cloud (Run ID: {run_id}). Menunggu ekstraksi selesai...")
         
         # Polling status Apify setiap 5 detik
+        poll_count = 0
         while True:
             await asyncio.sleep(5)
+            poll_count += 1
             status_url = f"https://api.apify.com/v2/actor-runs/{run_id}?token={self.api_key}"
             try:
                 s_resp = requests.get(status_url, timeout=10).json()
                 status = s_resp.get("data", {}).get("status")
-                print(f"Status Apify: {status}...")
+                print(f"[APIFY] Status job ({poll_count * 5}s): {status}...")
+                if progress_callback:
+                    progress_callback("Apify Ekstraksi", f"Memeriksa status aktor di Cloud: {status} (detik ke-{poll_count * 5})...")
                 
                 if status in ["SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"]:
                     break
@@ -96,18 +109,28 @@ class FacebookExecutor:
                 logger.warning(f"Gagal mengecek status Apify: {e}")
                 
         if status != "SUCCEEDED":
-            print(f"❌ Apify gagal atau dihentikan dengan status: {status}")
+            print(f"[ERROR] Apify gagal atau dihentikan dengan status: {status}")
+            if progress_callback:
+                progress_callback("Apify Selesai", f"Job Apify berakhir dengan status: {status}")
             return []
             
-        print("📥 Mengunduh hasil pencarian spesifik dari Apify...")
+        print("[DOWNLOAD] Mengunduh hasil pencarian spesifik dari Apify dataset...")
+        if progress_callback:
+            progress_callback("Unduh Dataset", f"Job berhasil selesai di Cloud. Mengunduh dataset {dataset_id}...")
         data_url = f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={self.api_key}"
         try:
             d_resp = requests.get(data_url, timeout=30).json()
         except Exception as e:
             logger.error(f"Gagal mengunduh dataset Apify: {e}")
+            if progress_callback:
+                progress_callback("Unduh Gagal", f"Gagal mengunduh dataset Apify: {e}")
             return []
             
         all_posts_data = []
+        maps_count = 0
+        fb_count = 0
+        web_count = 0
+
         for item in d_resp:
             # Pada Google Search Scraper, hasil ada di dalam array 'organicResults'
             organic_results = item.get("organicResults", [])
@@ -124,10 +147,13 @@ class FacebookExecutor:
 
                 if "maps.google" in u_lower or "google.com/maps" in u_lower or any(k in q_lower for k in ["toko buah", "toko sayur", "pasar induk", "grosir buah"]):
                     platform_tag = "google_maps"
+                    maps_count += 1
                 elif "facebook.com" in u_lower:
                     platform_tag = "facebook"
+                    fb_count += 1
                 else:
                     platform_tag = "web_b2b"
+                    web_count += 1
                 
                 if snippet and len(snippet.strip()) > 15:
                     all_posts_data.append({
@@ -137,8 +163,10 @@ class FacebookExecutor:
                         "url": url
                     })
                 
-        print(f"🎉 SUKSES! {len(all_posts_data)} Prospek Asli (Sesuai Kata Kunci) berhasil disedot.")
+        print(f"[SELESAI] Sukses! {len(all_posts_data)} postingan sumber berhasil diambil.")
         print("="*50 + "\n")
+        if progress_callback:
+            progress_callback("Scraping Selesai", f"Berhasil mengunduh {len(all_posts_data)} data sumber: Google Maps ({maps_count}), Facebook ({fb_count}), Direktori Web B2B ({web_count}).")
         return all_posts_data
 
 # Standalone test
