@@ -19,6 +19,7 @@ from agent.match_runner import (
     run_all_matches, get_matches_for_display, update_match_outcome, update_match_status
 )
 from agent.db import save_manual_order
+from agent.dedup import deduplicate_database
 from agent.caller_lookup import lookup_caller
 from agent.outreach import (
     format_wa_url,
@@ -297,7 +298,7 @@ with st.sidebar:
 
     # --- Section: Quick Start ---
     st.markdown("<div style='font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;'>Aksi Cepat</div>", unsafe_allow_html=True)
-    c_btn1, c_btn2 = st.columns(2)
+    c_btn1, c_btn2, c_btn3 = st.columns(3)
     with c_btn1:
         if st.button("Muat Demo", help="Mengisi database dengan dataset demo komprehensif"):
             with st.spinner("Memuat dataset demo..."):
@@ -313,6 +314,12 @@ with st.sidebar:
                 conn.execute("DELETE FROM raw_items")
                 conn.commit()
                 st.session_state["notify_info"] = "Database berhasil dikosongkan."
+            st.rerun()
+    with c_btn3:
+        if st.button("Anti-Duplikat", help="Deteksi dan bersihkan data lead ganda di database"):
+            with st.spinner("Memeriksa duplikasi..."):
+                d_res = deduplicate_database(conn)
+                st.session_state["notify_info"] = f"Deduplikasi selesai: {d_res['duplicates_marked']} entri duplikat berhasil disembunyikan."
             st.rerun()
 
     st.divider()
@@ -506,8 +513,8 @@ st.markdown("""
 # 2. Status Bar Strip (Sesuai Screenshot 1 & 3 Apify)
 try:
     total_raw = conn.execute("SELECT COUNT(*) FROM raw_items").fetchone()[0]
-    total_leads = conn.execute("SELECT COUNT(*) FROM listings").fetchone()[0]
-    high_conf = conn.execute("SELECT COUNT(*) FROM listings WHERE confidence >= 80").fetchone()[0]
+    total_leads = conn.execute("SELECT COUNT(*) FROM listings WHERE duplicate_of IS NULL").fetchone()[0]
+    high_conf = conn.execute("SELECT COUNT(*) FROM listings WHERE confidence >= 80 AND duplicate_of IS NULL").fetchone()[0]
     total_matches = conn.execute("SELECT COUNT(*) FROM matches").fetchone()[0]
     usage = gateway.usage_today()
 except Exception:
@@ -535,11 +542,24 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# Notifikasi Aksi (Persisten setelah rerun)
-if "notify_success" in st.session_state:
-    st.success(st.session_state.pop("notify_success"))
-if "notify_info" in st.session_state:
-    st.info(st.session_state.pop("notify_info"))
+# Notifikasi Aksi (Dismissable dengan tombol ✕ / Close)
+if st.session_state.get("notify_success"):
+    c_alert, c_btn = st.columns([0.96, 0.04])
+    with c_alert:
+        st.success(st.session_state["notify_success"])
+    with c_btn:
+        if st.button("✕", key="btn_close_notify_success", help="Tutup notifikasi"):
+            del st.session_state["notify_success"]
+            st.rerun()
+
+if st.session_state.get("notify_info"):
+    c_alert, c_btn = st.columns([0.96, 0.04])
+    with c_alert:
+        st.info(st.session_state["notify_info"])
+    with c_btn:
+        if st.button("✕", key="btn_close_notify_info", help="Tutup notifikasi"):
+            del st.session_state["notify_info"]
+            st.rerun()
 
 # 3. Metric Summary Cards (Apify Dashboard Widget Style)
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
@@ -588,7 +608,7 @@ with tab1:
             r.url AS URL
         FROM listings l
         JOIN raw_items r ON l.raw_item_id = r.id
-        WHERE l.relevance >= ? AND l.confidence >= ?
+        WHERE l.relevance >= ? AND l.confidence >= ? AND l.duplicate_of IS NULL
     """
     params = [min_rel, min_conf]
     if status_filter != "Semua":
@@ -741,8 +761,14 @@ with tab2:
                 st.session_state["notify_match"] = f"Matchmaking Berhasil Dihitung! {m_stats['matches_created']} match tunggal dan {m_stats['pools_created']} smart pool aktif siap dieksekusi."
                 st.rerun()
 
-    if "notify_match" in st.session_state:
-        st.success(st.session_state.pop("notify_match"))
+    if st.session_state.get("notify_match"):
+        c_m_alert, c_m_btn = st.columns([0.96, 0.04])
+        with c_m_alert:
+            st.success(st.session_state["notify_match"])
+        with c_m_btn:
+            if st.button("✕", key="btn_close_notify_match", help="Tutup notifikasi"):
+                del st.session_state["notify_match"]
+                st.rerun()
 
 
     with st.expander("Input Permintaan Pembeli Baru (Demand)", expanded=False):

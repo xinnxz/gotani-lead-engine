@@ -53,13 +53,15 @@ def find_duplicate(
                     return r["id"], f"Nomor telepon sama ({norm_phone})"
 
     # 2. Cek duplikasi berdasarkan URL sumber (jika URL postingan sama)
-    if source_url and len(source_url) > 10 and "/groups/" in source_url:
+    if source_url and len(source_url.strip()) > 10:
+        clean_url = source_url.strip()
+        url_slash = clean_url.rstrip("/")
         query = """
             SELECT l.id, r.url FROM listings l
             JOIN raw_items r ON l.raw_item_id = r.id
-            WHERE l.duplicate_of IS NULL AND r.url = ?
+            WHERE l.duplicate_of IS NULL AND (r.url = ? OR r.url = ? OR r.url = ?)
         """
-        params = [source_url]
+        params = [clean_url, url_slash, url_slash + "/"]
         if exclude_listing_id:
             query += " AND l.id != ?"
             params.append(exclude_listing_id)
@@ -89,3 +91,62 @@ def find_duplicate(
                         return r["id"], f"Nama entitas mirip ({sim}%: {entity_name} ~ {target_name}) di {kabupaten}"
 
     return None, None
+
+
+def deduplicate_database(conn: sqlite3.Connection) -> dict[str, int]:
+    """Memeriksa database listings dan menandai listing duplikat.
+
+    Listing duplikat disetel duplicate_of = id_listing_pertama.
+    Mengembalikan ringkasan statistik pembersihan.
+    """
+    stats = {"duplicates_marked": 0, "urls_checked": 0, "phones_checked": 0}
+
+    # 1. Deduplikasi berbasis URL postingan yang identik
+    url_groups = conn.execute("""
+        SELECT r.url, GROUP_CONCAT(l.id) AS listing_ids
+        FROM listings l
+        JOIN raw_items r ON l.raw_item_id = r.id
+        WHERE r.url IS NOT NULL AND TRIM(r.url) != ''
+        GROUP BY r.url
+        HAVING COUNT(l.id) > 1
+    """).fetchall()
+
+    for row in url_groups:
+        stats["urls_checked"] += 1
+        ids = [int(x) for x in row["listing_ids"].split(",") if x.strip()]
+        if len(ids) > 1:
+            canonical_id = ids[0]
+            duplicate_ids = ids[1:]
+            for dup_id in duplicate_ids:
+                cur = conn.execute(
+                    "UPDATE listings SET duplicate_of = ? WHERE id = ? AND duplicate_of IS NULL",
+                    (canonical_id, dup_id),
+                )
+                if cur.rowcount > 0:
+                    stats["duplicates_marked"] += 1
+
+    # 2. Deduplikasi berbasis nomor telepon dan produk yang sama
+    phone_groups = conn.execute("""
+        SELECT l.contact_phone, l.product, GROUP_CONCAT(l.id) AS listing_ids
+        FROM listings l
+        WHERE l.contact_phone IS NOT NULL AND TRIM(l.contact_phone) != '' AND l.duplicate_of IS NULL
+        GROUP BY l.contact_phone, LOWER(TRIM(l.product))
+        HAVING COUNT(l.id) > 1
+    """).fetchall()
+
+    for row in phone_groups:
+        stats["phones_checked"] += 1
+        ids = [int(x) for x in row["listing_ids"].split(",") if x.strip()]
+        if len(ids) > 1:
+            canonical_id = ids[0]
+            duplicate_ids = ids[1:]
+            for dup_id in duplicate_ids:
+                cur = conn.execute(
+                    "UPDATE listings SET duplicate_of = ? WHERE id = ? AND duplicate_of IS NULL",
+                    (canonical_id, dup_id),
+                )
+                if cur.rowcount > 0:
+                    stats["duplicates_marked"] += 1
+
+    conn.commit()
+    return stats

@@ -13,9 +13,10 @@ from .extraction import llm_extract
 from .llm_gateway import LLMGateway
 from .normalize import to_kg, normalize_phone, parse_available
 from .scoring import relevance, confidence, region_from
-from .dedup import find_duplicate
+from .dedup import find_duplicate, deduplicate_database
 
 logger = logging.getLogger(__name__)
+
 
 class Pipeline:
     def __init__(self, campaign: CampaignSpec, progress_callback = None):
@@ -195,8 +196,9 @@ class Pipeline:
                     rel_score, rel_why = relevance(result, self.campaign, raw_text)
                     conf_score, conf_why = confidence(result, self.campaign, row["platform"], 1)
                     if dup_of:
-                        conf_score = max(0, conf_score - 20)
-                        conf_why.append(f"-20 duplikat dari listing #{dup_of} ({dup_why})")
+                        conf_score = 0
+                        rel_score = 0
+                        conf_why.append(f"Duplikat dari listing #{dup_of} ({dup_why})")
                     
                     # 9. Simpan ke database listings
                     safe_intent = result.get("intent")
@@ -223,14 +225,22 @@ class Pipeline:
                             result.get("extractor", "llm"), db.now_iso()
                         )
                     )
-                    new_leads_saved += 1
+                    # Tandai raw item telah selesai diproses
+                    self.conn.execute("UPDATE raw_items SET processed = 1 WHERE id = ?", (row["id"],))
+                    if not dup_of:
+                        new_leads_saved += 1
                 self.conn.commit()
                 logger.info(f"Batch {batch_num} selesai diproses.")
+
+            # Jalankan deduplikasi database menyeluruh
+            dedup_res = deduplicate_database(self.conn)
+            if dedup_res.get("duplicates_marked", 0) > 0:
+                logger.info(f"Deduplikasi otomatis: {dedup_res['duplicates_marked']} entri duplikat ditandai.")
 
             if self.progress_callback:
                 self.progress_callback(
                     "Pipeline Selesai",
-                    f"Sukses! {raw_items_saved} raw items disimpan ke database, dan {new_leads_saved} prospek terverifikasi berhasil diproses AI."
+                    f"Sukses! {raw_items_saved} raw items disimpan ke database, dan {new_leads_saved} prospek terverifikasi unik berhasil diproses AI."
                 )
 
         except Exception as e:

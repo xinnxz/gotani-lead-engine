@@ -55,17 +55,38 @@ def save_raw_item(
     source_id: int | None = None,
     run_id: int | None = None,
 ) -> bool:
-    """Simpan item mentah. Return False kalau teks yang sama sudah ada."""
+    """Simpan item mentah. Return False kalau teks atau URL yang sama sudah ada di database."""
     raw_text = (raw_text or "").strip()
     if len(raw_text) < 15:
         return False
+
+    # 1. Pengecekan URL global: jika URL sudah ada di raw_items, lewati (anti-duplikasi multi-run)
+    if url and len(url.strip()) > 10:
+        clean_url = url.strip()
+        url_slash = clean_url.rstrip("/")
+        existing_url = conn.execute(
+            "SELECT id FROM raw_items WHERE url = ? OR url = ? OR url = ?",
+            (clean_url, url_slash, url_slash + "/"),
+        ).fetchone()
+        if existing_url:
+            return False
+
+    # 2. Pengecekan konten teks global: jika konten identik sudah ada, lewati
+    c_hash = content_hash(raw_text)
+    existing_hash = conn.execute(
+        "SELECT id FROM raw_items WHERE content_hash = ?",
+        (c_hash,),
+    ).fetchone()
+    if existing_hash:
+        return False
+
     cur = conn.execute(
         """INSERT OR IGNORE INTO raw_items
            (run_id, campaign_id, source_id, platform, url, fetched_at, posted_at,
             author_name, author_url, raw_text, content_hash)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (run_id, campaign_id, source_id, platform, url, now_iso(), posted_at,
-         author_name, author_url, raw_text, content_hash(raw_text)),
+         author_name, author_url, raw_text, c_hash),
     )
     conn.commit()
     return cur.rowcount > 0
