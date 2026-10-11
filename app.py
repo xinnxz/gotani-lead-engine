@@ -18,6 +18,7 @@ from agent.match_runner import (
     run_all_matches, get_matches_for_display, update_match_outcome, update_match_status
 )
 from agent.db import save_manual_order
+from agent.caller_lookup import lookup_caller
 
 # ================= PAGE CONFIG (harus pertama) =================
 st.set_page_config(
@@ -157,7 +158,29 @@ with st.sidebar:
     except Exception:
         st.caption("Belum ada pemakaian API.")
 
+    # --- Bagian 5: Bantuan Telepon Masuk (PRD §7.7 / Fase 2) ---
+    st.divider()
+    st.subheader("📞 Telepon Masuk (Caller ID)")
+    st.caption("Panduan bicara 5-7 poin saat menerima telepon dari petani/pembeli.")
+    caller_input = st.text_input("Ketik Nomor HP Penelepon", placeholder="misal: 085329755561", key="side_caller_phone")
+    if caller_input:
+        caller_res = lookup_caller(conn, caller_input)
+        if not caller_res:
+            st.warning("Format nomor telepon tidak valid.")
+        elif not caller_res.get("found"):
+            st.info(caller_res.get("message"))
+            with st.expander("Panduan Bicara (Mitra Baru)", expanded=True):
+                for p in caller_res["talking_points"]:
+                    st.markdown(f"• {p}")
+        else:
+            st.success(f"**{caller_res['name']}** ({caller_res['role']})")
+            st.caption(f"Komoditas: {caller_res['product']} | Lokasi: {caller_res['location']}")
+            with st.expander("📋 Panduan Bicara (5-7 Poin)", expanded=True):
+                for pt in caller_res["talking_points"]:
+                    st.markdown(f"• {pt}")
+
 # ================= MAIN AREA =================
+
 st.title("Lead Intelligence Dashboard")
 
 # --- Metrik Ringkasan ---
