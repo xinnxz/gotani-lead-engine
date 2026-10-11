@@ -441,7 +441,7 @@ st.markdown(f"""
     <div class="apify-status-bar">
         <div class="apify-status-left">
             <span class="apify-pill apify-pill-success">
-                <span class="dot dot-success"></span> Succeeded
+                Succeeded
             </span>
             <span style="font-size:13px; font-weight:600; color:#101828;">Dataset Siap</span>
             <span class="apify-meta-item">Total Posts: <b>{total_raw}</b></span>
@@ -697,7 +697,6 @@ with tab2:
         for m in matches_list:
             is_pool = (m["kind"] == "pool")
             tier_class = "apify-pill-success" if m["tier"] == "outreach" else ("apify-pill-review" if m["tier"] == "review" else "apify-pill-ignored")
-            tier_dot = "dot-success" if m["tier"] == "outreach" else ("dot-review" if m["tier"] == "review" else "dot-ignored")
             tier_label = "Prioritas Outreach" if m["tier"] == "outreach" else ("Perlu Review" if m["tier"] == "review" else "Diabaikan")
             kind_class = "apify-pill-pool" if is_pool else "apify-pill-single"
             kind_label = "Smart Pooling" if is_pool else "Match Tunggal"
@@ -708,7 +707,7 @@ with tab2:
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
                         <div>
                             <span class="apify-pill {kind_class}">{kind_label}</span>
-                            <span class="apify-pill {tier_class}"><span class="dot {tier_dot}"></span> {tier_label}</span>
+                            <span class="apify-pill {tier_class}">{tier_label}</span>
                             <h4 style="margin:8px 0 2px 0; color:#101828;">{m['buyer_name']} ({m['buyer_location']})</h4>
                             <span style="font-size:12px; color:#64748b;">
                                 Komoditas: <b>{m['product'].title()}</b> | Kebutuhan: <b>{m['buyer_vol']:g} kg</b> | 
