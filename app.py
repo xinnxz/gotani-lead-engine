@@ -302,6 +302,7 @@ with st.sidebar:
         if st.button("Muat Demo", help="Mengisi database dengan dataset demo komprehensif"):
             with st.spinner("Memuat dataset demo..."):
                 subprocess.run([sys.executable, "seed_demo.py"], cwd=str(Path(__file__).parent))
+                st.session_state["notify_success"] = "Dataset demo berhasil dimuat! 38 postingan mentah, 25 prospek terverifikasi, dan 61 match aktif siap diuji."
                 st.rerun()
     with c_btn2:
         if st.button("Hapus Data", help="Mengosongkan semua catatan lead dan match"):
@@ -311,6 +312,7 @@ with st.sidebar:
                 conn.execute("DELETE FROM listings")
                 conn.execute("DELETE FROM raw_items")
                 conn.commit()
+                st.session_state["notify_info"] = "Database berhasil dikosongkan."
             st.rerun()
 
     st.divider()
@@ -363,7 +365,7 @@ with st.sidebar:
                     pipe = Pipeline(c, progress_callback=on_progress)
                     asyncio.run(pipe.run())
                     status_box.update(label="Pipeline Berhasil Selesai!", state="complete", expanded=False)
-                    st.success("Pipeline berhasil diselesaikan.")
+                    st.session_state["notify_success"] = f"Pipeline berhasil diselesaikan! Data prospek baru untuk komoditas '{c.product.name}' berhasil diekstrak dan disimpan ke database."
                     time.sleep(1)
                     st.rerun()
             except Exception as e:
@@ -468,6 +470,12 @@ st.markdown(f"""
         </div>
     </div>
 """, unsafe_allow_html=True)
+
+# Notifikasi Aksi (Persisten setelah rerun)
+if "notify_success" in st.session_state:
+    st.success(st.session_state.pop("notify_success"))
+if "notify_info" in st.session_state:
+    st.info(st.session_state.pop("notify_info"))
 
 # 3. Metric Summary Cards (Apify Dashboard Widget Style)
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
@@ -666,8 +674,11 @@ with tab2:
         if st.button("Jalankan Matchmaking", type="primary", help="Hitung skor kecocokan semua order pembeli terhadap penawaran petani"):
             with st.spinner("Menghitung kecocokan dan menyusun smart pool..."):
                 m_stats = run_all_matches(conn, include_pending_high_score=include_pending)
-                st.success(f"Selesai: {m_stats['matches_created']} match tunggal dan {m_stats['pools_created']} smart pool berhasil dihitung.")
+                st.session_state["notify_match"] = f"Matchmaking Berhasil Dihitung! {m_stats['matches_created']} match tunggal dan {m_stats['pools_created']} smart pool aktif siap dieksekusi."
                 st.rerun()
+
+    if "notify_match" in st.session_state:
+        st.success(st.session_state.pop("notify_match"))
 
 
     with st.expander("Input Permintaan Pembeli Baru (Demand)", expanded=False):
