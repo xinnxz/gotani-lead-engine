@@ -319,57 +319,121 @@ with st.sidebar:
 
     # --- Section: New Campaign Spec ---
     st.markdown("<div style='font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;'>Kampanye Pencarian</div>", unsafe_allow_html=True)
-    prompt_text = st.text_area(
-        "Kriteria Pencarian",
-        placeholder="Contoh: Cari petani melon di Jawa Timur, minimal 500 kg",
-        height=90,
-        label_visibility="collapsed",
+
+    # Inisialisasi template JSON bawaan jika session belum ada
+    if "draft_spec" not in st.session_state:
+        default_cid = new_campaign_id(conn)
+        default_spec = CampaignSpec(
+            campaign_id=default_cid,
+            goal="find_supply",
+            target_entity="petani / kelompok tani",
+            business_context="Pencarian pasokan panen",
+        )
+        default_spec.product.name = "Melon"
+        default_spec.product.synonyms = ["melon", "madesta", "golden"]
+        default_spec.location.include = ["Jawa Timur"]
+        default_spec.location.priority = ["Jombang", "Kediri", "Blitar", "Malang"]
+        default_spec.volume.min = 500.0
+        st.session_state["draft_spec"] = default_spec.to_json()
+
+    spec_mode = st.radio(
+        "Metode Konfigurasi",
+        ["Manual / JSON Editor", "AI Natural Language"],
+        horizontal=True,
+        label_visibility="collapsed"
     )
 
-    if st.button("Susun Spesifikasi"):
-        if not prompt_text.strip():
-            st.warning("Masukkan kriteria pencarian terlebih dahulu.")
-        else:
-            with st.spinner("Menyusun spesifikasi kampanye..."):
-                cid = new_campaign_id(conn)
-                spec = None
-                if gateway.available:
-                    try:
-                        spec, qs = draft_spec_llm(gateway, prompt_text, cid)
-                        if qs:
-                            for q in qs:
-                                st.info(f"Saran pelengkap: {q}")
-                    except Exception as e:
-                        st.error(f"Gagal memproses API: {e}")
-                if spec is None:
-                    if not gateway.available:
-                        st.warning("API key belum dikonfigurasi, beralih ke mode offline.")
-                    spec = draft_spec_offline(prompt_text, cid)
-                st.session_state["draft_spec"] = spec.to_json()
-
-    if "draft_spec" in st.session_state:
-        edited_spec_json = st.text_area(
-            "Konfigurasi Spesifikasi (JSON)",
-            value=st.session_state["draft_spec"],
-            height=250,
+    if spec_mode == "AI Natural Language":
+        prompt_text = st.text_area(
+            "Kriteria Pencarian",
+            placeholder="Contoh: Cari petani melon di Jawa Timur, minimal 500 kg",
+            height=70,
+            label_visibility="collapsed",
         )
-        if st.button("Jalankan Pipeline", type="primary"):
-            try:
-                raw_spec = json.loads(edited_spec_json)
-                c = CampaignSpec.model_validate(raw_spec)
-                save_campaign(conn, c)
-                with st.status("Menjalankan Pipeline Inteligensi Pasar...", expanded=True) as status_box:
-                    def on_progress(step_title: str, detail_text: str):
-                        status_box.write(f"[{datetime.now().strftime('%H:%M:%S')}] **{step_title}**: {detail_text}")
-
-                    pipe = Pipeline(c, progress_callback=on_progress)
-                    asyncio.run(pipe.run())
-                    status_box.update(label="Pipeline Berhasil Selesai!", state="complete", expanded=False)
-                    st.session_state["notify_success"] = f"Pipeline berhasil diselesaikan! Data prospek baru untuk komoditas '{c.product.name}' berhasil diekstrak dan disimpan ke database."
-                    time.sleep(1)
+        if st.button("Susun Spesifikasi (AI)"):
+            if not prompt_text.strip():
+                st.warning("Masukkan kriteria pencarian terlebih dahulu.")
+            else:
+                with st.spinner("Menyusun spesifikasi kampanye..."):
+                    cid = new_campaign_id(conn)
+                    spec = None
+                    if gateway.available:
+                        try:
+                            spec, qs = draft_spec_llm(gateway, prompt_text, cid)
+                            if qs:
+                                for q in qs:
+                                    st.info(f"Saran pelengkap: {q}")
+                        except Exception as e:
+                            st.warning(f"API AI sibuk: {e}")
+                    if spec is None:
+                        spec = draft_spec_offline(prompt_text, cid)
+                    st.session_state["draft_spec"] = spec.to_json()
                     st.rerun()
-            except Exception as e:
-                st.error(f"Kesalahan pada eksekusi pipeline: {e}")
+    else:
+        # Pilihan Cepat Preset Template untuk Isi Manual
+        c_tpl1, c_tpl2 = st.columns([2.2, 1])
+        with c_tpl1:
+            tpl_choice = st.selectbox(
+                "Preset Template",
+                ["Preset: Melon Jatim", "Preset: Cabai Rawit", "Preset: Rempah Jahe & Cengkeh", "Preset: Demand Toko Buah"],
+                label_visibility="collapsed"
+            )
+        with c_tpl2:
+            if st.button("Gunakan", help="Muat template ini ke kotak JSON di bawah"):
+                cid = new_campaign_id(conn)
+                tpl_spec = CampaignSpec(campaign_id=cid)
+                if "Melon" in tpl_choice:
+                    tpl_spec.product.name = "Melon"
+                    tpl_spec.product.synonyms = ["melon", "madesta", "golden"]
+                    tpl_spec.location.include = ["Jawa Timur"]
+                    tpl_spec.location.priority = ["Jombang", "Kediri", "Blitar"]
+                    tpl_spec.volume.min = 500.0
+                elif "Cabai" in tpl_choice:
+                    tpl_spec.product.name = "Cabai"
+                    tpl_spec.product.synonyms = ["cabai rawit", "cabe merah", "lombok"]
+                    tpl_spec.location.include = ["Jawa Timur"]
+                    tpl_spec.location.priority = ["Kediri", "Blitar", "Banyuwangi"]
+                    tpl_spec.volume.min = 200.0
+                elif "Rempah" in tpl_choice:
+                    tpl_spec.product.name = "Jahe"
+                    tpl_spec.product.synonyms = ["jahe gajah", "jahe merah", "cengkeh"]
+                    tpl_spec.location.include = ["Jawa Timur"]
+                    tpl_spec.location.priority = ["Pacitan", "Trenggalek"]
+                    tpl_spec.volume.min = 1000.0
+                elif "Demand" in tpl_choice:
+                    tpl_spec.goal = "find_demand"
+                    tpl_spec.target_entity = "toko buah / distributor"
+                    tpl_spec.product.name = "Melon"
+                    tpl_spec.location.include = ["Surabaya", "Sidoarjo", "Malang"]
+                    tpl_spec.volume.min = 1000.0
+                st.session_state["draft_spec"] = tpl_spec.to_json()
+                st.rerun()
+
+    # Kotak Konfigurasi JSON SELALU TERSEDIA untuk diedit / ditempel manual
+    edited_spec_json = st.text_area(
+        "Konfigurasi Spesifikasi (JSON)",
+        value=st.session_state.get("draft_spec", "{}"),
+        height=220,
+        help="Anda dapat mengedit atau menempel JSON kustom secara manual kapan saja."
+    )
+
+    if st.button("Jalankan Pipeline", type="primary", help="Mulai penelusuran multi-platform dan ekstraksi AI berdasarkan JSON di atas"):
+        try:
+            raw_spec = json.loads(edited_spec_json)
+            c = CampaignSpec.model_validate(raw_spec)
+            save_campaign(conn, c)
+            with st.status("Menjalankan Pipeline Inteligensi Pasar...", expanded=True) as status_box:
+                def on_progress(step_title: str, detail_text: str):
+                    status_box.write(f"[{datetime.now().strftime('%H:%M:%S')}] **{step_title}**: {detail_text}")
+
+                pipe = Pipeline(c, progress_callback=on_progress)
+                asyncio.run(pipe.run())
+                status_box.update(label="Pipeline Berhasil Selesai!", state="complete", expanded=False)
+                st.session_state["notify_success"] = f"Pipeline berhasil diselesaikan! Data prospek baru untuk komoditas '{c.product.name}' berhasil diekstrak dan disimpan ke database."
+                time.sleep(1)
+                st.rerun()
+        except Exception as e:
+            st.error(f"Kesalahan pada eksekusi pipeline: {e}")
 
     # --- Section: Handoff Detection ---
     st.divider()
