@@ -14,6 +14,10 @@ from agent.pipeline import Pipeline
 from agent import db
 from agent.llm_gateway import LLMGateway
 from agent.config import settings
+from agent.match_runner import (
+    run_all_matches, get_matches_for_display, update_match_outcome, update_match_status
+)
+from agent.db import save_manual_order
 
 # ================= PAGE CONFIG (harus pertama) =================
 st.set_page_config(
@@ -175,7 +179,7 @@ m4.metric("Conversion Rate", conv_rate, help="Rasio post mentah ke prospek.")
 st.divider()
 
 # --- Tabel Data ---
-tab1, tab2, tab3 = st.tabs(["Verified Leads", "Raw Data Log", "Campaign History"])
+tab1, tab2, tab3, tab4 = st.tabs(["Verified Leads", "Matchmaking & Pooling", "Raw Data Log", "Campaign History"])
 
 with tab1:
     # Filter controls
@@ -345,8 +349,152 @@ with tab1:
                             st.caption(c)
                     st.divider()
 
+# ================= TAB 2: MATCHMAKING & POOLING (FASE 2) =================
 with tab2:
+    st.markdown("### 🤝 Matchmaking Supply ↔ Demand & Smart Pooling")
+    st.caption("Pencocokan kebutuhan pembeli dengan petani terverifikasi + agregasi volume cerdas (PRD §7.6 / Fase 2)")
+
+    # 1. Baris Aksi Utama & Filter
+    m_act1, m_act2, m_act3 = st.columns([2, 1.5, 1.5])
+    with m_act1:
+        if st.button("⚡ Jalankan Matchmaking Engine", type="primary", help="Hitung skor kecocokan semua order pembeli terhadap penawaran petani"):
+            with st.spinner("Menghitung kecocokan dan menyusun smart pool..."):
+                m_stats = run_all_matches(conn, include_pending_high_score=True)
+                st.success(f"Selesai! {m_stats['matches_created']} match 1-ke-1 dan {m_stats['pools_created']} smart pool berhasil dihitung.")
+                st.rerun()
+
+    with m_act2:
+        tier_select = st.selectbox("Filter Tier Rekomendasi", ["Semua", "outreach", "review", "ignored"], index=0, help="outreach (skor ≥80), review (50-79), ignored (<50)")
+
+    with m_act3:
+        include_pending = st.checkbox("Ikutkan lead pending berskor tinggi", value=True, help="Menyertakan petani yang belum di-approve tapi relevance ≥70 dan confidence ≥60")
+
+    # 2. Form Input Order Pembeli Baru (Demand Manual)
+    with st.expander("➕ Input Kebutuhan Pembeli Baru (Order Demand)", expanded=False):
+        st.caption("Masukkan pesanan/kebutuhan nyata dari pembeli untuk dicocokkan dengan data petani di database.")
+        with st.form("form_manual_order"):
+            fo_c1, fo_c2 = st.columns(2)
+            with fo_c1:
+                b_name = st.text_input("Nama Pembeli / Usaha *", placeholder="misal: PT Sumber Berkah Buah")
+                b_prod = st.text_input("Komoditas yang Dicari *", placeholder="misal: melon, semangka, pisang")
+                b_vol = st.number_input("Volume Dibutuhkan (Kg) *", min_value=1.0, value=500.0, step=50.0)
+                b_price = st.number_input("Batas Harga Maksimal Pembeli (Rp/Kg)", min_value=0.0, value=9000.0, step=500.0)
+            with fo_c2:
+                b_loc = st.text_input("Lokasi Gudang / Titik Kirim *", placeholder="misal: Kota Surabaya, Sidoarjo, Kediri")
+                b_date = st.date_input("Dibutuhkan Paling Lambat", value=datetime.now())
+                b_phone = st.text_input("Nomor Telepon / WA Pembeli", placeholder="misal: 081234567890")
+                b_var = st.text_input("Varietas Khusus (Opsional)", placeholder="misal: madesta, golden, atau kosongkan jika bebas")
+
+            submitted_order = st.form_submit_button("Simpan Order Pembeli", type="secondary")
+            if submitted_order:
+                if not b_name or not b_prod or not b_loc:
+                    st.error("Nama pembeli, komoditas, dan lokasi wajib diisi!")
+                else:
+                    new_id = save_manual_order(
+                        conn,
+                        buyer_name=b_name,
+                        product=b_prod,
+                        volume_kg=b_vol,
+                        max_price_per_kg=b_price if b_price > 0 else None,
+                        kabupaten=b_loc,
+                        needed_date=b_date.isoformat(),
+                        contact_phone=b_phone,
+                        variety=b_var,
+                    )
+                    st.success(f"Order #{new_id} untuk '{b_name}' berhasil disimpan! Silakan klik 'Jalankan Matchmaking Engine'.")
+                    st.rerun()
+
+    # 3. Tampilkan Daftar Match Hasil Komputasi
+    matches_list = get_matches_for_display(conn, tier_filter=tier_select)
+
+    if not matches_list:
+        st.info("Belum ada data match yang sesuai kriteria. Klik tombol '⚡ Jalankan Matchmaking Engine' di atas, atau masukkan order pembeli baru.")
+    else:
+        st.write(f"Menampilkan **{len(matches_list)}** rekomendasi match:")
+
+        for m in matches_list:
+            is_pool = (m["kind"] == "pool")
+            tier_badge = "🟢 PRIORITAS OUTREACH" if m["tier"] == "outreach" else ("🟡 PERLU REVIEW" if m["tier"] == "review" else "⚪ DIABAIKAN")
+            badge_color = "#15803d" if m["tier"] == "outreach" else ("#b45309" if m["tier"] == "review" else "#6b7280")
+
+            with st.container(border=True):
+                # Header Kartu
+                hdr_col1, hdr_col2 = st.columns([3, 1.2])
+                with hdr_col1:
+                    kind_label = "🧩 SMART POOLING (AGREGASI PETANI)" if is_pool else "🤝 MATCH 1-KE-1"
+                    st.markdown(f"#### {kind_label} · {m['buyer_name']} ({m['buyer_location']})")
+                    st.caption(f"Komoditas: **{m['product'].title()}** | Kebutuhan: **{m['buyer_vol']:g} kg** | Budget Maks: **Rp {m['buyer_max_price']:,.0f}/kg**" if m['buyer_max_price'] else f"Komoditas: **{m['product'].title()}** | Kebutuhan: **{m['buyer_vol']:g} kg**")
+                
+                with hdr_col2:
+                    st.markdown(f"<div style='text-align:right;'><span style='background-color:{badge_color}; color:white; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:0.85rem;'>{tier_badge}</span><br><h3 style='margin:4px 0; color:#166534;'>Skor: {m['score']}</h3><small>Coverage: {m['coverage_pct']:g}%</small></div>", unsafe_allow_html=True)
+
+                st.divider()
+
+                # Badan Kartu: Daftar Petani
+                st.markdown("**Petani Rekomendasi:**")
+                items = m.get("items", [])
+                if items:
+                    f_cols = st.columns(len(items)) if len(items) <= 3 else [st.container()]
+                    for idx, it in enumerate(items):
+                        target_col = f_cols[idx] if len(items) <= 3 else st
+                        with target_col:
+                            st.markdown(f"**{it.get('farmer_name') or 'Petani'}** ({it.get('farmer_location') or '-'})")
+                            st.caption(f"Alokasi: **{it.get('allocated_kg', 0):g} kg** | Harga: **Rp {it.get('farmer_price', 0):,.0f}**" if it.get('farmer_price') else f"Alokasi: **{it.get('allocated_kg', 0):g} kg** | Harga: *belum tertera*")
+                            if it.get("distance_km"):
+                                st.caption(f"Jarak ke pembeli: ~{it['distance_km']} km")
+                            if it.get("farmer_wa"):
+                                st.markdown(f"[📱 Hubungi WA Petani]({it['farmer_wa']})")
+
+                # Disclaimer Pooling (F6.4)
+                if is_pool:
+                    disclaimer_text = m.get("breakdown", {}).get("disclaimer")
+                    if disclaimer_text:
+                        st.warning(f"⚠️ **Saran Agregasi:** {disclaimer_text}")
+
+                # Estimasi Margin GoTani (jika ada)
+                margin_info = m.get("margin")
+                if margin_info and margin_info.get("est_gross_margin_rp", 0) > 0:
+                    st.success(f"💰 **Estimasi Potensi Margin GoTani ({margin_info.get('margin_pct', 0.1):.0%}):** Rp {margin_info['est_gross_margin_rp']:,.0f} (Beli: Rp{margin_info['farmer_price']:,.0f} → Rekomendasi Jual: Rp{margin_info['suggested_price']:,.0f}/kg)")
+
+                # Kekurangan / Gaps (F6.3)
+                gaps = m.get("gaps", [])
+                if gaps:
+                    with st.expander("Catatan Kekurangan & Verifikasi (Gaps)", expanded=False):
+                        for g in gaps:
+                            st.caption(f"• {g}")
+
+                # Panel Aksi Outreach & Catat Hasil (F6.5 / F6.6)
+                act_c1, act_c2, act_c3 = st.columns([1.5, 2, 2.5])
+                with act_c1:
+                    if m.get("buyer_wa"):
+                        st.markdown(f"[📱 Hubungi Pembeli via WA]({m['buyer_wa']})")
+                    else:
+                        st.caption("Kontak WA pembeli belum ada")
+
+                with act_c2:
+                    if m["status"] == "open":
+                        if st.button("✅ Konfirmasi Outreach", key=f"conf_{m['match_id']}"):
+                            update_match_status(conn, m["match_id"], "confirmed")
+                            st.success("Match dikonfirmasi untuk outreach!")
+                            st.rerun()
+                    else:
+                        st.caption(f"Status: **{m['status'].upper()}**")
+
+                with act_c3:
+                    if m["status"] != "closed":
+                        with st.popover("Catat Hasil Transaksi (Deal/No Deal)"):
+                            out_choice = st.radio("Hasil Transaksi", ["deal", "no_deal"], key=f"rad_{m['match_id']}")
+                            out_note = st.text_input("Alasan Hasil", placeholder="misal: Harga disepakati, siap kirim tgl 20", key=f"note_{m['match_id']}")
+                            if st.button("Simpan Hasil", key=f"btn_out_{m['match_id']}"):
+                                update_match_outcome(conn, m["match_id"], out_choice, out_note)
+                                st.success("Hasil match berhasil dicatat!")
+                                st.rerun()
+                    else:
+                        st.caption(f"Hasil: **{str(m.get('outcome')).upper()}** ({m.get('outcome_reason') or '-'})")
+
+with tab3:
     df_raw = pd.read_sql_query("""
+
         SELECT
             id AS ID,
             platform AS Platform,
