@@ -39,12 +39,23 @@ class FacebookExecutor:
         negatives = "-bibit -benih -pupuk -obat -loker -lowongan -resep -jus -olahan -jasa"
         
         for q in queries:
-            if q.strip():
-                clean_q = q.strip()
-                # 1. Target spesifik ke postingan di dalam grup
+            if not q.strip():
+                continue
+            clean_q = q.strip()
+            lower_q = clean_q.lower()
+
+            # 1. Target Google Maps & Bisnis Lokal (Toko Buah, Pasar Induk, Distributor)
+            if any(k in lower_q for k in ["toko buah", "toko sayur", "distributor buah", "pasar induk", "grosir buah"]):
+                search_queries.append(f'"{clean_q}" {negatives}')
+                search_queries.append(f'site:maps.google.com "{clean_q}"')
+            # 2. Target Web B2B / Supplier / Direktori Agribisnis
+            elif any(k in lower_q for k in ["supplier", "kemitraan", "eksportir", "forwarder", "direktori"]):
+                search_queries.append(f'"{clean_q}" -site:facebook.com {negatives}')
+            # 3. Target Grup Facebook & Halaman Agribisnis
+            else:
                 search_queries.append(f'site:facebook.com/groups/* (inurl:posts OR inurl:permalink) "{clean_q}" {negatives}')
-                # 2. Target umum ke facebook
                 search_queries.append(f'site:facebook.com "{clean_q}" {negatives}')
+
                 
         if not search_queries:
             logger.warning("Tidak ada query pencarian yang valid. Membatalkan request Apify.")
@@ -107,10 +118,20 @@ class FacebookExecutor:
                 
                 # Gabungkan judul dan deskripsi sebagai teks mentah
                 text = f"{title}\n{snippet}"
+
+                u_lower = url.lower()
+                q_lower = item.get("searchQuery", "").lower()
+
+                if "maps.google" in u_lower or "google.com/maps" in u_lower or any(k in q_lower for k in ["toko buah", "toko sayur", "pasar induk", "grosir buah"]):
+                    platform_tag = "google_maps"
+                elif "facebook.com" in u_lower:
+                    platform_tag = "facebook"
+                else:
+                    platform_tag = "web_b2b"
                 
                 if snippet and len(snippet.strip()) > 15:
                     all_posts_data.append({
-                        "platform": "facebook",
+                        "platform": platform_tag,
                         "query": item.get("searchQuery", ""),
                         "raw_text": text.strip(),
                         "url": url

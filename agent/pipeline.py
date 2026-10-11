@@ -45,7 +45,7 @@ class Pipeline:
                 saved = db.save_raw_item(
                     self.conn,
                     self.campaign.campaign_id,
-                    platform="facebook",
+                    platform=p.get("platform", "facebook"),
                     raw_text=p["raw_text"],
                     url=p["url"],
                     run_id=run_id

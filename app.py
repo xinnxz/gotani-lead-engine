@@ -650,6 +650,12 @@ with tab2:
     st.caption("Algoritma pencocokan dua sisi (Supply ↔ Demand) dan agregasi multi-petani terdekat (PRD §7.6)")
 
     m_act1, m_act2, m_act3 = st.columns([2, 1.5, 1.5])
+    with m_act2:
+        tier_select = st.selectbox("Filter Tier", ["Semua", "outreach", "review", "ignored"], index=0, help="outreach (skor ≥80), review (50-79), ignored (<50)")
+
+    with m_act3:
+        include_pending = st.checkbox("Sertakan lead pending berskor tinggi", value=True, help="Menyertakan petani yang belum di-approve tapi relevance ≥70 dan confidence ≥60")
+
     with m_act1:
         if st.button("Jalankan Matchmaking", type="primary", help="Hitung skor kecocokan semua order pembeli terhadap penawaran petani"):
             with st.spinner("Menghitung kecocokan dan menyusun smart pool..."):
@@ -657,11 +663,6 @@ with tab2:
                 st.success(f"Selesai: {m_stats['matches_created']} match tunggal dan {m_stats['pools_created']} smart pool berhasil dihitung.")
                 st.rerun()
 
-    with m_act2:
-        tier_select = st.selectbox("Filter Tier", ["Semua", "outreach", "review", "ignored"], index=0, help="outreach (skor ≥80), review (50-79), ignored (<50)")
-
-    with m_act3:
-        include_pending = st.checkbox("Sertakan lead pending berskor tinggi", value=True, help="Menyertakan petani yang belum di-approve tapi relevance ≥70 dan confidence ≥60")
 
     with st.expander("Input Permintaan Pembeli Baru (Demand)", expanded=False):
         st.caption("Tambahkan pesanan pembeli baru untuk langsung dipasangkan dengan petani di database.")
@@ -851,6 +852,7 @@ with tab3:
             id AS ID,
             platform AS Platform,
             campaign_id AS Campaign,
+            url AS URL,
             fetched_at AS Waktu_Scrape,
             raw_text AS Teks_Original,
             processed AS Diproses
@@ -875,6 +877,7 @@ with tab3:
                 "ID": st.column_config.NumberColumn("#", width="small"),
                 "Platform": st.column_config.TextColumn("Sumber", width="small"),
                 "Campaign": st.column_config.TextColumn("Campaign", width="medium"),
+                "URL": st.column_config.LinkColumn("Tautan Sumber", display_text="Buka Tautan", width="medium"),
                 "Teks_Original": st.column_config.TextColumn("Teks Postingan Asli", width="large"),
                 "Diproses": st.column_config.CheckboxColumn("Diproses"),
             },

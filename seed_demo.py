@@ -265,42 +265,89 @@ FARMER_POSTS = [
     },
 ]
 
-# Postingan Mentah Tambahan untuk Tab 3 (Raw Data Log) termasuk non-relevan / spam yang disaring sistem
+# Postingan Mentah Tambahan untuk Tab 3 (Raw Data Log) mencakup Facebook, Google Maps, dan Direktori Web B2B
 ADDITIONAL_RAW_SCRAPED = [
+    # Google Maps / Toko Buah & Sayuran
     {
-        "text": "Info jual bibit melon madesta F1 unggul polybag siap tanam murah meriah per pohon 2500 wa 081299881122",
-        "author": "Toko Bibit Tani Makmur",
-        "platform": "facebook",
+        "text": "Toko Buah Segar Barokah Kediri, Jl. Dhoho No. 45. Menyediakan aneka buah lokal dan impor partai besar & eceran untuk hajatan dan retail. Telp: 081234112233",
+        "author": "Toko Buah Barokah Kediri",
+        "platform": "google_maps",
+        "url": "https://maps.google.com/?q=Toko+Buah+Barokah+Kediri",
     },
     {
-        "text": "Dibutuhkan tenaga kerja petik buah melon harian di kebun Nganjuk makan siang gratis hub pak tono 085699887766",
-        "author": "Loker Pertanian Jatim",
-        "platform": "facebook",
+        "text": "Grosir Buah Pasar Induk Osowilangun Surabaya (PIOS), Los B-12. Terima pasokan melon dan semangka rutin per truk dari petani langsung. WA 085788990011",
+        "author": "Kios Buah PIOS Surabaya",
+        "platform": "google_maps",
+        "url": "https://maps.google.com/?q=Pasar+Induk+Osowilangun+Surabaya",
     },
     {
-        "text": "Pupuk organik cair booster pelebat buah melon dan semangka dijamin panen melimpah pesan sekarang wa 087766554433",
-        "author": "Agro Kimia Nusantara",
-        "platform": "facebook",
+        "text": "Istana Buah Dinoyo Malang, Jl. MT Haryono. Supplier buah segar untuk resto, hotel, dan katering area Malang Raya. Butuh supply kontinu. Kontak: 082155667788",
+        "author": "Istana Buah Malang",
+        "platform": "google_maps",
+        "url": "https://maps.google.com/?q=Istana+Buah+Malang",
     },
     {
-        "text": "Resep es kuwut melon segar untuk menu buka puasa bersama keluarga",
-        "author": "Kumpulan Resep Bunda",
-        "platform": "facebook",
+        "text": "Sentra Sayur & Buah Segar Pasar Gadang Malang. Buka 24 jam melayani pembelian grosir partai besar. Hubungi 081322334455",
+        "author": "Pasar Gadang Malang",
+        "platform": "google_maps",
+        "url": "https://maps.google.com/?q=Pasar+Gadang+Malang",
+    },
+    # Web B2B & Direktori Komoditas Agribisnis
+    {
+        "text": "Direktori Agribisnis Jatim: PT Sumber Buah Sejahtera Sidoarjo membuka kemitraan pasokan komoditas hortikultura buah segar untuk suplai retail modern. Info kemitraan di website.",
+        "author": "Direktori Agribisnis Jatim",
+        "platform": "web_b2b",
+        "url": "https://agrobisnis-jatim.id/mitra/sumber-buah-sidoarjo",
     },
     {
-        "text": "Sewa truk engkel dan pick up grand max carter muatan hasil panen sayur buah rute jatim jabar wa 081355443322",
-        "author": "Ekspedisi Angkutan Hasil Bumi",
-        "platform": "facebook",
+        "text": "Portal Ekspor Hortikultura Indonesia: Forwarder rempah dan buah segar tujuan ekspor kawasan Asia Tenggara. Gudang transit Perak Surabaya.",
+        "author": "IndoAgro Export Portal",
+        "platform": "web_b2b",
+        "url": "https://inaexport.id/directory/fruit-commodities",
     },
+    # Grup Facebook & Komunitas Petani
     {
         "text": "Melon golden aroma manis renyah panen segar di kebun pare kediri monggo merapat",
         "author": "Komunitas Petani Kediri",
         "platform": "facebook",
+        "url": "https://www.facebook.com/groups/komunitaspetanikediri/posts/849201948",
     },
     {
         "text": "Update harga buah melon pasar keputran surabaya pagi ini stabil permintaan tinggi",
         "author": "Info Pasar Induk Jatim",
         "platform": "facebook",
+        "url": "https://www.facebook.com/groups/pasarkeputransurabaya/posts/192847501",
+    },
+    # Sampah / Iklan yang disaring sistem (Negative Keywords)
+    {
+        "text": "Info jual bibit melon madesta F1 unggul polybag siap tanam murah meriah per pohon 2500 wa 081299881122",
+        "author": "Toko Bibit Tani Makmur",
+        "platform": "facebook",
+        "url": "https://www.facebook.com/groups/bibitpertanian/posts/492019482",
+    },
+    {
+        "text": "Dibutuhkan tenaga kerja petik buah melon harian di kebun Nganjuk makan siang gratis hub pak tono 085699887766",
+        "author": "Loker Pertanian Jatim",
+        "platform": "facebook",
+        "url": "https://www.facebook.com/groups/lokerpertanian/posts/938201948",
+    },
+    {
+        "text": "Pupuk organik cair booster pelebat buah melon dan semangka dijamin panen melimpah pesan sekarang wa 087766554433",
+        "author": "Agro Kimia Nusantara",
+        "platform": "facebook",
+        "url": "https://www.facebook.com/groups/pupukpertanian/posts/182947192",
+    },
+    {
+        "text": "Resep es kuwut melon segar untuk menu buka puasa bersama keluarga",
+        "author": "Kumpulan Resep Bunda",
+        "platform": "facebook",
+        "url": "https://www.facebook.com/resepmakanan/posts/582910482",
+    },
+    {
+        "text": "Sewa truk engkel dan pick up grand max carter muatan hasil panen sayur buah rute jatim jabar wa 081355443322",
+        "author": "Ekspedisi Angkutan Hasil Bumi",
+        "platform": "facebook",
+        "url": "https://www.facebook.com/groups/ekspedisijatim/posts/382910481",
     },
 ]
 
@@ -316,6 +363,7 @@ BUYER_ORDERS = [
         "kab": "Surabaya",
         "phone": "081987654321",
         "days_ahead": 5,
+        "url": "https://maps.google.com/?q=PT+Segar+Buah+Nusantara+Surabaya",
     },
     # 2. Memicu SMART POOLING (Agregasi 3 Petani: Kediri 400 + Blitar 350 + Tulungagung 250 = 1.000 kg)
     {
@@ -327,6 +375,7 @@ BUYER_ORDERS = [
         "kab": "Kediri",
         "phone": "081299998888",
         "days_ahead": 4,
+        "url": "https://maps.google.com/?q=Grosir+Buah+Indah+Pare+Kediri",
     },
     # 3. Kebutuhan Pisang (Demand Pasuruan/Malang)
     {
@@ -338,6 +387,7 @@ BUYER_ORDERS = [
         "kab": "Malang",
         "phone": "081377776666",
         "days_ahead": 10,
+        "url": "https://maps.google.com/?q=Distributor+Buah+Malang+Raya",
     },
     # 4. Kebutuhan Melon Premium Supermarket (Sidoarjo / Surabaya)
     {
@@ -349,6 +399,7 @@ BUYER_ORDERS = [
         "kab": "Sidoarjo",
         "phone": "081288887777",
         "days_ahead": 7,
+        "url": "https://maps.google.com/?q=Supermarket+Buah+Citra+Sidoarjo",
     },
     # 5. Kebutuhan Agregasi Gresik / Lamongan (Action 434, 1.200 kg)
     {
@@ -360,6 +411,7 @@ BUYER_ORDERS = [
         "kab": "Gresik",
         "phone": "081399991111",
         "days_ahead": 5,
+        "url": "https://maps.google.com/?q=Katering+Berkah+Bersama+Gresik",
     },
 ]
 
@@ -381,11 +433,12 @@ def run():
         ts = now_iso()
         avail_date = (now_dt + timedelta(days=p["days_ahead"])).date().isoformat()
         norm_phone = normalize_phone(p["phone"])
+        post_url = p.get("url") or f"https://www.facebook.com/groups/petanihasiltani{p['kab'].lower()}/posts/38910{p['phone'][-4:]}"
 
         cur_raw = conn.execute(
-            """INSERT INTO raw_items (campaign_id, platform, raw_text, content_hash, fetched_at, author_name, processed)
-               VALUES (?, 'facebook', ?, ?, ?, ?, 1)""",
-            (CAMPAIGN_ID, p["text"], f"hash_{p['phone']}", ts, p["entity"]),
+            """INSERT INTO raw_items (campaign_id, platform, raw_text, url, content_hash, fetched_at, author_name, processed)
+               VALUES (?, 'facebook', ?, ?, ?, ?, ?, 1)""",
+            (CAMPAIGN_ID, p["text"], post_url, f"hash_{p['phone']}", ts, p["entity"]),
         )
         raw_id = cur_raw.lastrowid
 
@@ -414,10 +467,11 @@ def run():
     # 2. Masukkan Postingan Mentah Tambahan (Memperkaya Tab 3 Raw Log)
     for idx, raw_extra in enumerate(ADDITIONAL_RAW_SCRAPED):
         ts = now_iso()
+        raw_url = raw_extra.get("url") or f"https://www.facebook.com/posts/extra_{idx}"
         conn.execute(
-            """INSERT INTO raw_items (campaign_id, platform, raw_text, content_hash, fetched_at, author_name, processed)
-               VALUES (?, ?, ?, ?, ?, ?, 1)""",
-            (CAMPAIGN_ID, raw_extra["platform"], raw_extra["text"], f"hash_extra_{idx}", ts, raw_extra["author"]),
+            """INSERT INTO raw_items (campaign_id, platform, raw_text, url, content_hash, fetched_at, author_name, processed)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 1)""",
+            (CAMPAIGN_ID, raw_extra["platform"], raw_extra["text"], raw_url, f"hash_extra_{idx}", ts, raw_extra["author"]),
         )
 
     # 3. Masukkan Kebutuhan Pembeli (Demand)
@@ -425,11 +479,12 @@ def run():
         ts = now_iso()
         needed_date = (now_dt + timedelta(days=b["days_ahead"])).date().isoformat()
         norm_phone = normalize_phone(b["phone"])
+        buyer_url = b.get("url") or f"https://maps.google.com/?q={b['name'].replace(' ', '+')}+{b['kab']}"
 
         cur_raw = conn.execute(
-            """INSERT INTO raw_items (campaign_id, platform, raw_text, content_hash, fetched_at, author_name, processed)
-               VALUES ('manual_demand', 'manual_order', ?, ?, ?, ?, 1)""",
-            (f"Order: {b['name']} butuh {b['product']} {b['vol']}kg di {b['kab']}", f"hash_buyer_{b['phone']}", ts, b["name"]),
+            """INSERT INTO raw_items (campaign_id, platform, raw_text, url, content_hash, fetched_at, author_name, processed)
+               VALUES ('manual_demand', 'manual_order', ?, ?, ?, ?, ?, 1)""",
+            (f"Order: {b['name']} butuh {b['product']} {b['vol']}kg di {b['kab']}", buyer_url, f"hash_buyer_{b['phone']}", ts, b["name"]),
         )
         raw_id = cur_raw.lastrowid
 

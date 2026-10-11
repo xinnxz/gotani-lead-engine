@@ -19,6 +19,22 @@ GROUP_PATTERNS_DEMAND = [
     "beli {p} {r}"
 ]
 
+# Pola pencarian Google Maps / Bisnis Lokal untuk calon pembeli B2B (PRD §7.2 F2.1d)
+PLACES_PATTERNS = [
+    "toko buah {r}",
+    "toko sayur {r}",
+    "distributor buah {r}",
+    "pasar induk {r}",
+    "grosir buah {r}",
+]
+
+# Pola pencarian Direktori Web B2B & Kemitraan Agribisnis (PRD §7.2 F2.2)
+WEB_B2B_PATTERNS = [
+    "supplier {p} {r}",
+    "distributor {p} {r}",
+    "kemitraan pasokan {p} {r}",
+]
+
 PROVINCE_PATTERNS = [
     "jual {p} {prov}",
     "panen {p} {prov}",
@@ -73,28 +89,39 @@ def build_group_queries(spec: CampaignSpec, max_queries: int | None = None) -> l
     queries: list[dict] = []
     seen: set[str] = set()
 
-    def add(q: str, region: str) -> None:
+    def add(q: str, region: str, platform: str = "facebook", kind: str = "group_search") -> None:
         q = " ".join(q.lower().split())
         if q not in seen:
             seen.add(q)
-            queries.append({"query": q, "region": region, "platform": "facebook", "kind": "group_search"})
+            queries.append({"query": q, "region": region, "platform": platform, "kind": kind})
 
     for prov in spec.provinces():
         for pat in PROVINCE_PATTERNS:
-            add(pat.format(p=p, prov=prov), prov)
+            add(pat.format(p=p, prov=prov), prov, "facebook", "group_search")
             
     regions = expand_regions(spec)
     for r in regions:
+        # 1. Grup Facebook (Petani / Penjual / Pembeli medsos)
         for pat in patterns:
-            add(pat.format(p=p, r=r["nama"]), wilayah.label(r))
+            add(pat.format(p=p, r=r["nama"]), wilayah.label(r), "facebook", "group_search")
+
+        # 2. Google Maps / Bisnis Lokal (Toko Buah, Toko Sayur, Distributor, Pasar Induk)
+        for pat in PLACES_PATTERNS:
+            add(pat.format(r=r["nama"]), wilayah.label(r), "google_maps", "places_search")
+
+        # 3. Web B2B & Kemitraan Agribisnis
+        for pat in WEB_B2B_PATTERNS:
+            add(pat.format(p=p, r=r["nama"]), wilayah.label(r), "web_b2b", "web_search")
             
     # FALLBACK 1: Jika lokasi tidak ada di database wilayah.json (misal luar Jawa Timur),
     # gunakan teks lokasi mentah yang diinputkan dari spec.location.include
     if not regions and not spec.provinces() and spec.location.include:
         for loc in spec.location.include:
             for pat in patterns:
-                # loc adalah string mentah misal "Kab. Cianjur"
-                add(pat.format(p=p, r=loc), loc)
+                add(pat.format(p=p, r=loc), loc, "facebook", "group_search")
+            for pat in PLACES_PATTERNS:
+                add(pat.format(r=loc), loc, "google_maps", "places_search")
+
 
     # FALLBACK 2: Jika user SAMA SEKALI tidak menyebutkan lokasi (lokasi kosong),
     # buat query skala nasional agar pipeline tidak macet!
