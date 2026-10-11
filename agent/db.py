@@ -120,3 +120,61 @@ def update_review_status(conn: sqlite3.Connection, listing_id: int, status: str,
     )
     conn.commit()
     return cur.rowcount > 0
+
+
+def save_manual_order(
+    conn: sqlite3.Connection,
+    buyer_name: str,
+    product: str,
+    volume_kg: float,
+    max_price_per_kg: float | None,
+    kabupaten: str,
+    needed_date: str | None,
+    contact_phone: str | None = None,
+    variety: str | None = None,
+    note: str | None = None,
+) -> int:
+    """Simpan kebutuhan pembeli yang diinput manual oleh staf/operator GoTani.
+
+    Otomatis berstatus approved dengan relevance & confidence 100 karena data resmi.
+    """
+    ts = now_iso()
+    # Buat raw_item virtual agar foreign key listing tetap konsisten
+    cur_raw = conn.execute(
+        """INSERT INTO raw_items (campaign_id, platform, raw_text, content_hash, fetched_at, author_name)
+           VALUES (?, 'manual', ?, ?, ?, ?)""",
+        ("manual_demand", f"Order Pembeli: {buyer_name} butuh {product} {volume_kg}kg", content_hash(f"{buyer_name}_{product}_{ts}"), ts, buyer_name),
+    )
+    raw_id = cur_raw.lastrowid
+
+    norm_phone = None
+    if contact_phone:
+        from .normalize import normalize_phone
+        norm_phone = normalize_phone(contact_phone)
+
+    attr = {"variety": [variety.strip()] if variety and variety.strip() else [], "source": "manual_order", "note": note}
+
+    cur = conn.execute(
+        """INSERT INTO listings (
+            campaign_id, raw_item_id, intent, entity_name, product,
+            volume_kg, price_per_kg, location_text, kabupaten, provinsi,
+            available_text, available_date, contact_phone, contact_wa,
+            attributes_json, relevance, confidence, review_status,
+            extractor, created_at
+        ) VALUES (
+            'manual_demand', ?, 'demand', ?, ?,
+            ?, ?, ?, ?, 'Jawa Timur',
+            ?, ?, ?, ?,
+            ?, 100, 100, 'approved',
+            'manual', ?
+        )""",
+        (
+            raw_id, buyer_name, product.lower().strip(),
+            volume_kg, max_price_per_kg, kabupaten, kabupaten,
+            f"Dibutuhkan: {needed_date or 'segera'}", needed_date, contact_phone, norm_phone,
+            dumps(attr), ts,
+        ),
+    )
+    conn.commit()
+    return int(cur.lastrowid)
+

@@ -99,40 +99,101 @@ def parse_quantity(text: str, skip: tuple[int, int] | None = None) -> tuple[floa
     return None, None
 
 
+INDONESIAN_MONTHS = {
+    "januari": 1, "jan": 1,
+    "februari": 2, "feb": 2,
+    "maret": 3, "mar": 3,
+    "april": 4, "apr": 4,
+    "mei": 5,
+    "juni": 6, "jun": 6,
+    "juli": 7, "jul": 7,
+    "agustus": 8, "agt": 8, "ags": 8,
+    "september": 9, "sep": 9,
+    "oktober": 10, "okt": 10,
+    "november": 11, "nov": 11,
+    "desember": 12, "des": 12,
+}
+
 RELATIVE_DATES = [
-    (r"hari ini|sekarang|ready", 0),
+    (r"hari ini|sekarang|ready|siap kirim|stok ada", 0),
     (r"besok", 1),
     (r"lusa", 2),
+    (r"3 hari lagi", 3),
     (r"minggu depan|pekan depan", 7),
+    (r"2 minggu lagi|dua minggu lagi", 14),
+    (r"akhir bulan", 20),
     (r"bulan depan", 30),
 ]
+
 AVAILABLE_RE = re.compile(
-    r"(panen|siap panen|ready|tersedia|kirim|butuh)\s*(?:mulai\s*)?"
-    r"(hari ini|besok|lusa|minggu depan|pekan depan|bulan depan|\d+\s*hari\s*lagi|tgl\.?\s*\d{1,2}(?:[/\-]\d{1,2})?)",
+    r"(panen|siap panen|ready|tersedia|kirim|butuh|petik)\s*(?:mulai\s*|tgl\s*|tanggal\s*)?"
+    r"(hari ini|besok|lusa|minggu depan|pekan depan|bulan depan|\d+\s*hari\s*lagi|\d{1,2}\s+[a-z]+(?:\s+\d{4})?|\d{1,2}[/\-]\d{1,2}(?:[/\-]\d{2,4})?)",
     re.IGNORECASE,
 )
 
 
-def parse_available(text: str, posted_at: str | None) -> tuple[str | None, str | None]:
-    """'panen minggu depan' (post 1 Okt) → ('panen minggu depan', '2026-10-08')."""
-    m = AVAILABLE_RE.search(text or "")
-    if not m:
+def parse_available(text: str, posted_at: str | None = None) -> tuple[str | None, str | None]:
+    """Ekstrak frase waktu dan konversi ke tanggal kalender ISO (YYYY-MM-DD).
+
+    Contoh:
+    - 'panen minggu depan' (post 2026-10-01) -> ('panen minggu depan', '2026-10-08')
+    - 'ready tgl 25 oktober' (tahun 2026) -> ('ready tgl 25 oktober', '2026-10-25')
+    """
+    if not text:
         return None, None
-    phrase = m.group(0)
-    when = m.group(2).lower()
+    m = AVAILABLE_RE.search(text)
+    if not m:
+        # Coba tangkap jika teks pendek itu sendiri adalah frase waktu (misal dari LLM available_text)
+        low = text.lower().strip()
+        for pat, d in RELATIVE_DATES:
+            if re.search(pat, low):
+                base = _parse_dt(posted_at) or datetime.now()
+                return text, (base + timedelta(days=d)).date().isoformat()
+        return text if len(text) <= 50 else None, None
+
+    phrase = m.group(0).strip()
+    when = m.group(2).lower().strip()
     base = _parse_dt(posted_at) or datetime.now()
-    days = None
+    year = base.year
+
+    # Cek format "25 oktober" atau "25 okt 2026"
+    m_month = re.match(r"^(\d{1,2})\s+([a-z]+)(?:\s+(\d{4}))?$", when)
+    if m_month:
+        day = int(m_month.group(1))
+        mon_str = m_month.group(2)
+        y = int(m_month.group(3)) if m_month.group(3) else year
+        mon = INDONESIAN_MONTHS.get(mon_str)
+        if mon and 1 <= day <= 31:
+            try:
+                return phrase, datetime(y, mon, day).date().isoformat()
+            except ValueError:
+                pass
+
+    # Cek format "25/10" atau "25-10-2026"
+    m_slash = re.match(r"^(\d{1,2})[/\-](\d{1,2})(?:[/\-](\d{2,4}))?$", when)
+    if m_slash:
+        day = int(m_slash.group(1))
+        mon = int(m_slash.group(2))
+        raw_y = m_slash.group(3)
+        y = int(raw_y) if raw_y and len(raw_y) == 4 else (2000 + int(raw_y) if raw_y else year)
+        if 1 <= mon <= 12 and 1 <= day <= 31:
+            try:
+                return phrase, datetime(y, mon, day).date().isoformat()
+            except ValueError:
+                pass
+
+    # Cek format "X hari lagi"
     mm = re.match(r"(\d+)\s*hari\s*lagi", when)
     if mm:
         days = int(mm.group(1))
-    else:
-        for pat, d in RELATIVE_DATES:
-            if re.fullmatch(pat, when):
-                days = d
-                break
-    if days is None:
-        return phrase, None
-    return phrase, (base + timedelta(days=days)).date().isoformat()
+        return phrase, (base + timedelta(days=days)).date().isoformat()
+
+    # Cek pola relatif
+    for pat, d in RELATIVE_DATES:
+        if re.search(pat, when):
+            return phrase, (base + timedelta(days=d)).date().isoformat()
+
+    return phrase, None
 
 
 def _parse_dt(s: str | None) -> datetime | None:
@@ -142,3 +203,4 @@ def _parse_dt(s: str | None) -> datetime | None:
         return datetime.fromisoformat(s).replace(tzinfo=None)
     except ValueError:
         return None
+

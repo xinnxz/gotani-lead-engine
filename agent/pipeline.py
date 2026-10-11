@@ -11,8 +11,9 @@ from .masking import mask_text
 from .rules import extract as rules_extract
 from .extraction import llm_extract
 from .llm_gateway import LLMGateway
-from .normalize import to_kg
+from .normalize import to_kg, normalize_phone, parse_available
 from .scoring import relevance, confidence, region_from
+from .dedup import find_duplicate
 
 logger = logging.getLogger(__name__)
 
@@ -131,14 +132,41 @@ class Pipeline:
                         result["provinsi"] = region["provinsi"]
                         result["kode_wilayah"] = region["kode"]
                     
+                    # Tanggal ketersediaan/panen kalender
+                    avail_phrase, avail_date = parse_available(
+                        result.get("available_text") or raw_text,
+                        posted_at=row.get("posted_at") if "posted_at" in row.keys() else None
+                    )
+                    result["available_text"] = avail_phrase or result.get("available_text")
+                    result["available_date"] = avail_date
+
                     # Restore PII untuk kontak (contoh sederhana)
                     phones = [val for key, val in mapping.items() if "PHONE" in key]
+                    contact_phone = None
+                    contact_wa = None
                     if phones:
-                        result["contact_phone"] = ", ".join(phones)
+                        contact_phone = ", ".join(phones)
+                        # Normalisasi nomor telepon pertama menjadi format WA (+62)
+                        contact_wa = normalize_phone(phones[0])
+                    result["contact_phone"] = contact_phone
+                    result["contact_wa"] = contact_wa
+                    
+                    # Deteksi Duplikasi (PRD F3.5)
+                    dup_of, dup_why = find_duplicate(
+                        self.conn,
+                        product=result.get("product"),
+                        kabupaten=result.get("kabupaten"),
+                        contact_phone=contact_phone,
+                        source_url=row.get("url") if "url" in row.keys() else None,
+                        entity_name=result.get("entity_name")
+                    )
                     
                     # 8. Scoring
                     rel_score, rel_why = relevance(result, self.campaign, raw_text)
                     conf_score, conf_why = confidence(result, self.campaign, row["platform"], 1)
+                    if dup_of:
+                        conf_score = max(0, conf_score - 20)
+                        conf_why.append(f"-20 duplikat dari listing #{dup_of} ({dup_why})")
                     
                     # 9. Simpan ke database listings
                     safe_intent = result.get("intent")
@@ -149,22 +177,25 @@ class Pipeline:
                         """INSERT INTO listings (
                             raw_item_id, campaign_id, intent, entity_name,
                             product, volume_kg, price_per_kg, location_text,
-                            kabupaten, provinsi, available_text,
-                            contact_phone, attributes_json, evidence_json, flags_json, relevance, 
+                            kabupaten, provinsi, available_text, available_date,
+                            contact_phone, contact_wa, duplicate_of,
+                            attributes_json, evidence_json, flags_json, relevance, 
                             confidence, score_reasons_json, extractor, created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (
                             row["id"], self.campaign.campaign_id, safe_intent, result.get("entity_name"),
                             result.get("product"), vol_kg, price_kg, loc_text,
                             result.get("kabupaten"), result.get("provinsi"), result.get("available_text"),
-                            result.get("contact_phone"), db.dumps(result), db.dumps(result.get("evidence", {})),
+                            avail_date, contact_phone, contact_wa, dup_of,
+                            db.dumps(result), db.dumps(result.get("evidence", {})),
                             db.dumps(result.get("flags", [])), rel_score, conf_score, 
-                            db.dumps({"relevance": rel_why, "confidence": conf_why}), 
+                            db.dumps({"relevance": rel_why, "confidence": conf_why, "dup": dup_why}), 
                             result.get("extractor", "llm"), db.now_iso()
                         )
                     )
                 self.conn.commit()
                 logger.info(f"Batch {i//batch_size + 1} selesai diproses.")
+
 
         except Exception as e:
             logger.exception("Error pada pipeline.")
