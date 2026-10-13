@@ -16,7 +16,7 @@ class FacebookExecutor:
         key = os.getenv("APIFY_API_KEY")
         self.api_key = key.strip() if key else None
 
-    async def scrape_queries(self, queries: List[str], max_posts: int = 10, progress_callback = None) -> List[Dict]:
+    async def scrape_queries(self, queries: List[str], max_posts: int = 10, progress_callback=None, target_intent: str = "supply") -> List[Dict]:
         """
         Mengekstrak postingan Facebook menggunakan Apify API.
         Karena kita butuh kepastian data masuk, kita akan memberikan beberapa URL
@@ -55,9 +55,23 @@ class FacebookExecutor:
                 search_queries.append(f'"{clean_q}" -site:facebook.com {negatives}')
             # 3. Target Grup Facebook & Komunitas Agribisnis
             else:
-                search_queries.append(f'site:facebook.com/groups {clean_q} (ready OR panen OR jual OR petik OR diobral) (wa OR "08") {negatives}')
-                search_queries.append(f'site:facebook.com/groups "petani {clean_q}" {negatives}')
-                search_queries.append(f'site:facebook.com {clean_q} (panen OR ready OR jual) ("wa" OR "08") {negatives}')
+                if target_intent == "demand":
+                    # Cari posting PEMBELI di Facebook (orang/bisnis yang butuh pasokan)
+                    search_queries.append(f'site:facebook.com/groups {clean_q} (butuh OR cari OR beli OR terima OR tampung OR order) (wa OR "08") {negatives}')
+                    search_queries.append(f'site:facebook.com {clean_q} (butuh OR dicari OR beli OR tampung) ("wa" OR "08") {negatives}')
+                else:
+                    # Cari posting PENJUAL/PETANI di Facebook (default, supply)
+                    search_queries.append(f'site:facebook.com/groups {clean_q} (ready OR panen OR jual OR petik OR diobral) (wa OR "08") {negatives}')
+                    search_queries.append(f'site:facebook.com/groups "petani {clean_q}" {negatives}')
+                    search_queries.append(f'site:facebook.com {clean_q} (panen OR ready OR jual) ("wa" OR "08") {negatives}')
+
+                # Untuk kampanye demand, tambahkan pencarian bisnis lokal otomatis
+                if target_intent == "demand":
+                    # Tambahkan pencarian toko/distributor/pasar yang relevan
+                    for biz_type in ["toko buah", "distributor", "grosir", "pasar induk"]:
+                        biz_q = f'{biz_type} {clean_q}'
+                        if biz_q not in search_queries:
+                            search_queries.append(f'"{biz_q}" telepon alamat')
 
                 
         if not search_queries:

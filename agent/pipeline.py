@@ -48,7 +48,8 @@ class Pipeline:
             posts = await self.fb_executor.scrape_queries(
                 queries_to_run,
                 max_posts=50,
-                progress_callback=self.progress_callback
+                progress_callback=self.progress_callback,
+                target_intent=self.campaign.target_intent,
             )
             
             # 3. Simpan ke database raw_items
@@ -237,10 +238,21 @@ class Pipeline:
             if dedup_res.get("duplicates_marked", 0) > 0:
                 logger.info(f"Deduplikasi otomatis: {dedup_res['duplicates_marked']} entri duplikat ditandai.")
 
+            # Jalankan matchmaking otomatis agar pasangan langsung sinkron jika ada demand & supply
+            try:
+                from .match_runner import run_all_matches
+                m_stats = run_all_matches(self.conn)
+                extra_m = ""
+                if m_stats["matches_created"] > 0 or m_stats["pools_created"] > 0:
+                    extra_m = f" Terbentuk {m_stats['matches_created']} match tunggal dan {m_stats['pools_created']} smart pool."
+            except Exception as me:
+                logger.warning(f"Gagal sinkronisasi matchmaking otomatis: {me}")
+                extra_m = ""
+
             if self.progress_callback:
                 self.progress_callback(
                     "Pipeline Selesai",
-                    f"Sukses! {raw_items_saved} raw items disimpan ke database, dan {new_leads_saved} prospek terverifikasi unik berhasil diproses AI."
+                    f"Sukses! {raw_items_saved} raw items disimpan ke database, dan {new_leads_saved} prospek terverifikasi unik berhasil diproses AI.{extra_m}"
                 )
 
         except Exception as e:

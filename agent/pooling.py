@@ -41,7 +41,9 @@ def build_smart_pool(
         if s_dict.get("duplicate_of"):
             continue
         # Hanya komoditas yang cocok
-        if (s_dict.get("product") or "").lower().strip() != (d_dict.get("product") or "").lower().strip():
+        s_prod_pool = (s_dict.get("product") or "").lower().strip()
+        d_prod_pool = (d_dict.get("product") or "").lower().strip()
+        if not s_prod_pool or not d_prod_pool or (s_prod_pool not in d_prod_pool and d_prod_pool not in s_prod_pool):
             continue
 
         res = score_match(d_dict, s_dict, margin_pct=margin)

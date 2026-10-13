@@ -643,6 +643,38 @@ if st.session_state.get("notify_info"):
             del st.session_state["notify_info"]
             st.rerun()
 
+if st.session_state.get("notify_match"):
+    c_alert, c_btn = st.columns([0.97, 0.03])
+    with c_alert:
+        st.markdown(
+            f'<div class="notify-marker-success" style="display:none;"></div>'
+            f'<div style="color:#027a48; font-size:13px; font-weight:500; line-height:1.4;">'
+            f'{st.session_state["notify_match"]}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with c_btn:
+        st.markdown('<div class="notify-close-marker" style="display:none;"></div>', unsafe_allow_html=True)
+        if st.button("✕", key="btn_close_notify_match_global", help="Tutup notifikasi"):
+            del st.session_state["notify_match"]
+            st.rerun()
+
+if st.session_state.get("notify_match_warning"):
+    c_alert, c_btn = st.columns([0.97, 0.03])
+    with c_alert:
+        st.markdown(
+            f'<div class="notify-marker-info" style="display:none;"></div>'
+            f'<div style="color:#b54708; font-size:13px; font-weight:500; line-height:1.4;">'
+            f'{st.session_state["notify_match_warning"]}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with c_btn:
+        st.markdown('<div class="notify-close-marker" style="display:none;"></div>', unsafe_allow_html=True)
+        if st.button("✕", key="btn_close_notify_match_warn", help="Tutup notifikasi"):
+            del st.session_state["notify_match_warning"]
+            st.rerun()
+
 # 3. Metric Summary Cards (Apify Dashboard Widget Style)
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 col_m1.metric("Raw Scraped Posts", f"{total_raw:,}", help="Jumlah postingan yang tersimpan dari penelusuran Google Search Scraper.")
@@ -705,16 +737,45 @@ with tab1:
     else:
         def make_lead_wa_link(row):
             phone = row.get("Telepon")
-            if not phone:
+            if phone is None or pd.isna(phone):
                 return None
+            phone_str = str(phone).strip()
+            if not phone_str or phone_str.lower() in ("nan", "none", "null"):
+                return None
+            
+            raw_name = row.get("Nama")
+            name_val = str(raw_name).strip() if (raw_name is not None and not pd.isna(raw_name)) else None
+            
+            raw_loc = row.get("Lokasi")
+            loc_val = str(raw_loc).strip() if (raw_loc is not None and not pd.isna(raw_loc)) else None
+            
+            raw_prod = row.get("Komoditas")
+            prod_val = str(raw_prod).strip() if (raw_prod is not None and not pd.isna(raw_prod)) else "hasil tani"
+            
+            raw_vol = row.get("Volume_Kg")
+            vol_val = None
+            if raw_vol is not None and not pd.isna(raw_vol):
+                try:
+                    vol_val = float(raw_vol) if float(raw_vol) > 0 else None
+                except (ValueError, TypeError):
+                    vol_val = None
+            
+            raw_price = row.get("Harga_Kg")
+            price_val = None
+            if raw_price is not None and not pd.isna(raw_price):
+                try:
+                    price_val = float(raw_price) if float(raw_price) > 0 else None
+                except (ValueError, TypeError):
+                    price_val = None
+
             msg = draft_farmer_outreach_for_lead(
-                farmer_name=row.get("Nama"),
-                commodity=str(row.get("Komoditas") or "hasil tani"),
-                farmer_location=row.get("Lokasi"),
-                volume_kg=row.get("Volume_Kg"),
-                price_per_kg=row.get("Harga_Kg"),
+                farmer_name=name_val,
+                commodity=prod_val,
+                farmer_location=loc_val,
+                volume_kg=vol_val,
+                price_per_kg=price_val,
             )
-            return format_wa_url(phone, msg)
+            return format_wa_url(phone_str, msg)
         
         df_leads["Chat_WA"] = df_leads.apply(make_lead_wa_link, axis=1)
         
@@ -837,26 +898,37 @@ with tab2:
 
     with m_act1:
         if st.button("Jalankan Matchmaking", type="primary", help="Hitung skor kecocokan semua order pembeli terhadap penawaran petani"):
-            with st.spinner("Menghitung kecocokan dan menyusun smart pool..."):
-                m_stats = run_all_matches(conn, include_pending_high_score=include_pending)
-                st.session_state["notify_match"] = f"Matchmaking Berhasil Dihitung! {m_stats['matches_created']} match tunggal dan {m_stats['pools_created']} smart pool aktif siap dieksekusi."
-                st.rerun()
+            c_demand_cnt = conn.execute("SELECT COUNT(*) FROM listings WHERE intent = 'demand' AND duplicate_of IS NULL").fetchone()[0]
+            c_supply_cnt = conn.execute("SELECT COUNT(*) FROM listings WHERE intent = 'supply' AND duplicate_of IS NULL").fetchone()[0]
 
-    if st.session_state.get("notify_match"):
-        c_m_alert, c_m_btn = st.columns([0.97, 0.03])
-        with c_m_alert:
-            st.markdown(
-                f'<div class="notify-marker-success" style="display:none;"></div>'
-                f'<div style="color:#027a48; font-size:13px; font-weight:500; line-height:1.4;">'
-                f'{st.session_state["notify_match"]}'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-        with c_m_btn:
-            st.markdown('<div class="notify-close-marker" style="display:none;"></div>', unsafe_allow_html=True)
-            if st.button("✕", key="btn_close_notify_match", help="Tutup notifikasi"):
-                del st.session_state["notify_match"]
+            if c_demand_cnt == 0:
+                st.session_state["notify_match_warning"] = (
+                    "Data Permintaan Pembeli (Demand) belum ada di database. "
+                    "Matchmaking memerlukan data penawaran petani (supply) DAN kebutuhan pembeli (demand). "
+                    "Silakan masukkan pesanan pembeli pada formulir 'Input Permintaan Pembeli Baru (Demand)' di bawah, "
+                    "atau klik tombol 'Muat Demo' pada sidebar."
+                )
                 st.rerun()
+            elif c_supply_cnt == 0:
+                st.session_state["notify_match_warning"] = (
+                    "Data Penawaran Petani (Supply) belum ada di database. "
+                    "Silakan jalankan pipeline pencarian petani terlebih dahulu atau klik tombol 'Muat Demo' pada sidebar."
+                )
+                st.rerun()
+            else:
+                with st.spinner(f"Menghitung kecocokan {c_demand_cnt} pesanan pembeli terhadap {c_supply_cnt} penawaran petani..."):
+                    m_stats = run_all_matches(conn, include_pending_high_score=include_pending)
+                    if m_stats["matches_created"] == 0 and m_stats["pools_created"] == 0:
+                        st.session_state["notify_match_warning"] = (
+                            f"Kalkulasi selesai untuk {m_stats['total_demand']} permintaan pembeli dan {c_supply_cnt} penawaran petani, "
+                            "namun belum ada pasangan yang memenuhi skor minimal (komoditas berbeda atau kriteria toleransi harga/jarak tidak terpenuhi)."
+                        )
+                    else:
+                        st.session_state["notify_match"] = (
+                            f"Matchmaking Berhasil Dihitung! Ditemukan {m_stats['matches_created']} match tunggal "
+                            f"dan {m_stats['pools_created']} smart pool aktif dari {m_stats['total_demand']} permintaan pembeli."
+                        )
+                    st.rerun()
 
 
     with st.expander("Input Permintaan Pembeli Baru (Demand)", expanded=False):
@@ -896,7 +968,19 @@ with tab2:
     matches_list = get_matches_for_display(conn, tier_filter=tier_select)
 
     if not matches_list:
-        st.info("Belum ada data match yang memenuhi kriteria filter. Klik tombol 'Jalankan Matchmaking' di atas.")
+        cur_dem = conn.execute("SELECT COUNT(*) FROM listings WHERE intent = 'demand' AND duplicate_of IS NULL").fetchone()[0]
+        cur_sup = conn.execute("SELECT COUNT(*) FROM listings WHERE intent = 'supply' AND duplicate_of IS NULL").fetchone()[0]
+        if cur_dem == 0:
+            st.info(
+                f"Belum ada data permintaan pembeli (Demand: 0, Supply: {cur_sup}). "
+                "Tambahkan pesanan pembeli lewat form 'Input Permintaan Pembeli Baru' di atas atau klik 'Muat Demo' pada sidebar, "
+                "lalu klik tombol 'Jalankan Matchmaking'."
+            )
+        else:
+            st.info(
+                f"Database memiliki {cur_sup} penawaran petani dan {cur_dem} permintaan pembeli. "
+                "Klik tombol 'Jalankan Matchmaking' di atas untuk menghitung kecocokan."
+            )
     else:
         top_exp1, top_exp2 = st.columns([3, 1.3])
         with top_exp1:

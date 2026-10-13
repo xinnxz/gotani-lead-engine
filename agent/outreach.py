@@ -13,14 +13,24 @@ Prinsip:
 from __future__ import annotations
 import urllib.parse
 import re
+from typing import Any
 
 
-def normalize_phone_number(raw_phone: str | None) -> str | None:
+def _clean_str(val: Any) -> str | None:
+    """Bersihkan nilai string secara aman dari float nan, None, atau string kosong."""
+    if val is None or not isinstance(val, str):
+        return None
+    s = val.strip()
+    return s if s and s.lower() not in {"nan", "none", "null"} else None
+
+
+def normalize_phone_number(raw_phone: Any) -> str | None:
     """Bersihkan nomor telepon ke format internasional MSISDN tanpa '+' (contoh: 6281234567890)."""
-    if not raw_phone:
+    clean_p = _clean_str(raw_phone)
+    if not clean_p:
         return None
     # Ambil nomor pertama jika ada separator koma atau garis miring
-    first_part = str(raw_phone).split(",")[0].split("/")[0].strip()
+    first_part = clean_p.split(",")[0].split("/")[0].strip()
     digits = re.sub(r"[^\d]", "", first_part)
     
     if not digits:
@@ -34,7 +44,7 @@ def normalize_phone_number(raw_phone: str | None) -> str | None:
     return digits
 
 
-def format_wa_url(raw_phone: str | None, text_message: str) -> str | None:
+def format_wa_url(raw_phone: Any, text_message: str) -> str | None:
     """Buat link WhatsApp https://wa.me/{phone}?text={encoded_message}."""
     clean_phone = normalize_phone_number(raw_phone)
     if not clean_phone:
@@ -44,18 +54,21 @@ def format_wa_url(raw_phone: str | None, text_message: str) -> str | None:
 
 
 def draft_farmer_outreach_for_match(
-    farmer_name: str | None,
+    farmer_name: Any,
     commodity: str,
-    farmer_location: str | None,
-    buyer_name: str | None,
-    buyer_location: str | None,
+    farmer_location: Any,
+    buyer_name: Any,
+    buyer_location: Any,
     needed_vol_kg: float | None = None,
     farmer_price: float | None = None,
 ) -> str:
     """Draf pesan outreach ke petani berdasarkan kecocokan (match) dengan permintaan pembeli."""
-    name_salutation = f"Pak/Bu {farmer_name.strip()}" if farmer_name and farmer_name.strip().lower() not in {"petani", "penjual", "unknown", "-"} else "Bapak/Ibu"
-    loc_farmer_str = f" di {farmer_location}" if farmer_location and farmer_location != "-" else ""
-    loc_buyer_str = f" di {buyer_location}" if buyer_location and buyer_location != "-" else ""
+    f_name = _clean_str(farmer_name)
+    name_salutation = f"Pak/Bu {f_name}" if f_name and f_name.lower() not in {"petani", "penjual", "unknown", "-"} else "Bapak/Ibu"
+    loc_f = _clean_str(farmer_location)
+    loc_farmer_str = f" di {loc_f}" if loc_f and loc_f != "-" else ""
+    loc_b = _clean_str(buyer_location)
+    loc_buyer_str = f" di {loc_b}" if loc_b and loc_b != "-" else ""
     
     vol_str = f" sekitar {needed_vol_kg:g} kg" if needed_vol_kg and needed_vol_kg > 0 else ""
     
@@ -74,15 +87,17 @@ def draft_farmer_outreach_for_match(
 
 
 def draft_farmer_outreach_for_lead(
-    farmer_name: str | None,
+    farmer_name: Any,
     commodity: str,
-    farmer_location: str | None,
+    farmer_location: Any,
     volume_kg: float | None = None,
     price_per_kg: float | None = None,
 ) -> str:
     """Draf pesan outreach pertama (eksplorasi prospek scraping) ke petani untuk Tab 1."""
-    name_salutation = f"Pak/Bu {farmer_name.strip()}" if farmer_name and farmer_name.strip().lower() not in {"petani", "penjual", "unknown", "-"} else "Bapak/Ibu"
-    loc_str = f" wilayah {farmer_location}" if farmer_location and farmer_location != "-" else ""
+    f_name = _clean_str(farmer_name)
+    name_salutation = f"Pak/Bu {f_name}" if f_name and f_name.lower() not in {"petani", "penjual", "unknown", "-"} else "Bapak/Ibu"
+    loc_f = _clean_str(farmer_location)
+    loc_str = f" wilayah {loc_f}" if loc_f and loc_f != "-" else ""
     
     details = []
     if volume_kg and volume_kg > 0:
@@ -107,9 +122,9 @@ def draft_farmer_outreach_for_lead(
 
 
 def draft_buyer_outreach_for_match(
-    buyer_name: str | None,
+    buyer_name: Any,
     commodity: str,
-    buyer_location: str | None,
+    buyer_location: Any,
     needed_vol_kg: float,
     suggested_price: float | None = None,
     is_pool: bool = False,
@@ -117,15 +132,16 @@ def draft_buyer_outreach_for_match(
     farmer_locations: list[str] | None = None,
 ) -> str:
     """Draf pesan outreach penawaran pasokan ke pembeli (demand lead) untuk Tab 2."""
-    b_name = buyer_name.strip() if buyer_name else "Bapak/Ibu"
-    loc_buyer = f" untuk area {buyer_location}" if buyer_location and buyer_location != "-" else ""
+    b_name = _clean_str(buyer_name) or "Bapak/Ibu"
+    loc_b = _clean_str(buyer_location)
+    loc_buyer = f" untuk area {loc_b}" if loc_b and loc_b != "-" else ""
     
     price_note = ""
     if suggested_price and suggested_price > 0:
         price_note = f"\nEstimasi penawaran harga sampai ke lokasi penerimaan adalah Rp {suggested_price:,.0f}/kg (sudah termasuk koordinasi logistik dan kurasi mutu)."
     
     if is_pool and num_farmers > 1:
-        locs_list = [l for l in (farmer_locations or []) if l and l != "-"]
+        locs_list = [_clean_str(l) for l in (farmer_locations or []) if _clean_str(l) and _clean_str(l) != "-"]
         locs_desc = f" ({', '.join(dict.fromkeys(locs_list))})" if locs_list else ""
         supply_desc = (
             f"tim GoTani telah menyiapkan program smart pooling dengan mengagregasi pasokan dari {num_farmers} petani mitra binaan terdekat{locs_desc} "

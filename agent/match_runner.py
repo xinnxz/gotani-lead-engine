@@ -16,6 +16,13 @@ from .matching import score_match
 from .pooling import build_smart_pool
 
 
+def _product_match(a: str, b: str) -> bool:
+    """Cocokkan komoditas dengan substring dua arah (misal 'melon' cocok dengan 'melon madesta')."""
+    if not a or not b:
+        return False
+    return a in b or b in a
+
+
 def generate_match_signature(demand_id: int, supply_ids: list[int]) -> str:
     """Kunci unik idempoten berdasarkan ID demand dan daftar ID supply yang terurut."""
     sorted_ids = sorted(supply_ids)
@@ -62,7 +69,7 @@ def run_all_matches(
         # Filter kandidat supply untuk komoditas yang sama
         candidate_supplies = [
             dict(s) for s in supply_rows 
-            if (s["product"] or "").lower().strip() == d_prod
+            if _product_match((s["product"] or "").lower().strip(), d_prod)
         ]
 
         if not candidate_supplies:
@@ -76,7 +83,7 @@ def run_all_matches(
             s_id = s_dict["id"]
             res = score_match(d_dict, s_dict, margin_pct=margin)
 
-            if res["score"] >= settings.match_tier_review_min:  # Min tier review
+            if res["score"] >= 1:  # Simpan semua match non-zero (termasuk tier ignored)
                 single_matched_ids.append(s_id)
                 sig = generate_match_signature(d_id, [s_id])
                 s_vol = s_dict.get("volume_kg") or 0.0
