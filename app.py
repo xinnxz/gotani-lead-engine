@@ -627,6 +627,16 @@ with st.sidebar:
             help="Isi 0 jika tidak membatasi harga.",
         )
 
+        freshness_days = st.slider(
+            "Batas Kesegaran (hari)",
+            min_value=7,
+            max_value=90,
+            value=30,
+            step=1,
+            key="marketplace_freshness",
+            help="Hanya tampilkan data dari X hari terakhir. Default: 30 hari (1 bulan).",
+        )
+
     # 5. Tombol Pencarian Marketplace
     if st.button("Cari Prospek", type="primary", use_container_width=True):
         cid = new_campaign_id(conn)
@@ -653,6 +663,9 @@ with st.sidebar:
         max_p = max_price if 'max_price' in locals() else 0
         if max_p > 0:
             spec.price.max = float(max_p)
+        
+        fd = freshness_days if 'freshness_days' in locals() else 30
+        spec.freshness_days = fd
 
         st.session_state["draft_spec"] = spec.to_json()
         st.session_state["spec_notice"] = {
@@ -935,7 +948,7 @@ with tab1:
         FROM listings l
         JOIN raw_items r ON l.raw_item_id = r.id
         WHERE l.relevance >= ? AND l.confidence >= ? AND l.duplicate_of IS NULL
-          AND (r.posted_at IS NULL OR r.posted_at >= date('now', '-35 days'))
+          AND (r.posted_at IS NULL OR r.posted_at >= date('now', '-' || ? || ' days'))
     """
     # Dynamic: filter tahun stale HANYA untuk data Facebook (bukan Google Maps)
     # Alasan: alamat bisnis Google Maps bisa mengandung angka tahun (misal "Jl. Raya 2020")
@@ -944,7 +957,8 @@ with tab1:
         query_str += f" AND (r.platform = 'google_maps' OR r.raw_text NOT LIKE '%{_sy}%')"
     query_str += """
     """
-    params = [min_rel, min_conf]
+    _fd_val = freshness_days if 'freshness_days' in locals() else 30
+    params = [min_rel, min_conf, str(_fd_val)]
     if status_filter != "Semua":
         query_str += " AND l.review_status = ?"
         params.append(status_filter)

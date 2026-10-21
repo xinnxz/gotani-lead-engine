@@ -43,6 +43,18 @@ def relevance(listing: dict, spec: CampaignSpec, raw_text: str) -> tuple[int, li
     # Hanya anggap cocok jika produk hasil ekstraksi cocok dengan terms komoditas target
     product_matched = any(t in prod for t in terms) or (prod and any(prod in t for t in terms))
     
+    # VALIDASI TAMBAHAN: Cek apakah raw_text mengandung kata kunci NON-AGRI (pipa, besi, dll)
+    _non_agri_keywords = [
+        "pipa", "scaffolding", "besi", "baja", "semen", "cat ", "keramik",
+        "elektronik", "gadget", "hp ", "laptop", "motor", "mobil",
+        "baju", "pakaian", "sepatu", "tas ", "kosmetik", "skincare",
+        "properti", "rumah dijual", "tanah dijual", "kost",
+    ]
+    if any(k in low for k in _non_agri_keywords):
+        score -= 80
+        why.append(f"-80 PENALTI: konten non-pertanian terdeteksi di teks")
+        product_matched = False
+    
     if product_matched:
         score += 40
         why.append(f"+40 produk cocok ({spec.product.name})")

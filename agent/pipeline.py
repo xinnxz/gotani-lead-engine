@@ -210,6 +210,22 @@ class Pipeline:
                         # PENTING: Jika LLM mengosongkan hasil (karena data sampah),
                         # kita TETAP harus menyimpannya ke database agar tidak diulang-ulang (hemat token).
                         result = {"intent": "other", "extractor": "llm_rejected"}
+                    
+                    # VALIDASI KERAS: Cek apakah komoditas target ADA di raw_text
+                    # Jika tidak ada, PAKSA intent="irrelevant" agar tidak mencemari hasil
+                    import re as _re_val
+                    _raw_low = raw_texts[j].lower()
+                    _product_terms = [t.lower() for t in self.campaign.product_terms()]
+                    _product_found_in_text = any(
+                        _re_val.search(rf"\b{_re_val.escape(t)}\b", _raw_low) for t in _product_terms
+                    )
+                    if not _product_found_in_text and result.get("intent") != "demand":
+                        # Komoditas TIDAK ditemukan di teks -> data tidak relevan
+                        result["intent"] = "irrelevant"
+                        result["product"] = result.get("product") or "tidak_relevan"
+                        result.setdefault("flags", [])
+                        if isinstance(result.get("flags"), list):
+                            result["flags"].append("komoditas_tidak_ditemukan_di_teks")
                         
                     row = dict(batch[j])
                     mapping = pii_mappings[j]
