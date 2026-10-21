@@ -26,6 +26,17 @@ def _parse_attr(attr_data: Any) -> dict:
     return {}
 
 
+def _extract_varieties(attr_data: dict) -> list[str]:
+    raw_v = attr_data.get("variety")
+    if not raw_v:
+        return []
+    if isinstance(raw_v, str):
+        return [raw_v.lower().strip()]
+    if isinstance(raw_v, (list, tuple, set)):
+        return [str(v).lower().strip() for v in raw_v if v]
+    return []
+
+
 def _parse_date(d_str: str | None) -> datetime | None:
     if not d_str:
         return None
@@ -84,8 +95,8 @@ def score_match(
     d_attr = _parse_attr(d_dict.get("attributes_json") or d_dict.get("attributes"))
     s_attr = _parse_attr(s_dict.get("attributes_json") or s_dict.get("attributes"))
 
-    d_var = [v.lower().strip() for v in d_attr.get("variety", []) if v]
-    s_var = [v.lower().strip() for v in s_attr.get("variety", []) if v]
+    d_var = _extract_varieties(d_attr)
+    s_var = _extract_varieties(s_attr)
 
     if not d_var:
         p_score += 10.0

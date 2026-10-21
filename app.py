@@ -571,14 +571,28 @@ with st.sidebar:
         if not caller_res:
             st.warning("Format nomor telepon tidak valid.")
         elif not caller_res.get("found"):
+            if caller_res.get("is_opted_out"):
+                st.error("⛔ DNC / OPT-OUT: Nomor ini meminta tidak dihubungi!")
             st.info(caller_res.get("message"))
             with st.expander("Panduan Bicara (Kontak Baru)", expanded=True):
                 for p in caller_res["talking_points"]:
                     st.markdown(f"- {p}")
         else:
+            if caller_res.get("is_opted_out"):
+                st.error("⛔ DNC / OPT-OUT: Nomor ini tercatat di registri supresi!")
+            
+            c_info = caller_res.get("conversation")
             st.success(f"{caller_res['name']} ({caller_res['role']})")
             st.caption(f"Komoditas: {caller_res['product']} | Lokasi: {caller_res['location']}")
-            with st.expander("Panduan Bicara", expanded=True):
+            
+            if c_info:
+                c_st = c_info.get("state", "").upper()
+                if c_info.get("state") == "handover_pending":
+                    st.error(f"🚨 CRM: HANDOVER PENDING · {c_info.get('summary_text', '')}")
+                else:
+                    st.info(f"CRM Status: `{c_st}` · {c_info.get('summary_text') or 'Percakapan tercatat'}")
+
+            with st.expander("Panduan Bicara Penelepon", expanded=True):
                 for pt in caller_res["talking_points"]:
                     st.markdown(f"- {pt}")
 

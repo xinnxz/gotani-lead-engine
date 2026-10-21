@@ -602,6 +602,18 @@ def run():
 
     if l_farmer_opt:
         # Percakapan 4: Opt-Out (Simulasi Kepatuhan UU PDP)
+        c4_id = db.create_conversation(
+            conn,
+            listing_id=l_farmer_opt["id"],
+            campaign_id=CAMPAIGN_ID,
+            contact_phone=l_farmer_opt["contact_phone"],
+            role="farmer",
+            contact_name=l_farmer_opt["entity_name"],
+            initial_state="opt_out",
+            summary_text="Kontak meminta berhenti dihubungi (Do-Not-Contact / UU PDP).",
+        )
+        db.add_message(conn, c4_id, "outbound", "ai", f"Halo Pak {l_farmer_opt['entity_name']}, salam dari GoTani. Kami melihat penawaran melon Anda.", delivery_status="sent")
+        db.add_message(conn, c4_id, "inbound", "lead", "Maaf jangan wa nomor ini lagi, kebun saya sudah laku borongan.", delivery_status="received")
         db.register_opt_out(
             conn,
             contact_phone=l_farmer_opt["contact_phone"],
