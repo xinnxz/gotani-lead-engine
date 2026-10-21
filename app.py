@@ -553,38 +553,40 @@ with st.sidebar:
         "Sulawesi Selatan", "Sulawesi Utara", "Papua",
     ]
 
-    # Session defaults
-    if "marketplace_commodity" not in st.session_state:
-        st.session_state["marketplace_commodity"] = "Melon"
+    # Session defaults (kunci unik agar state tidak mental / jumping)
+    goal_options = ["Beli Pasokan (Petani)", "Cari Pembeli (Demand)"]
     if "marketplace_goal" not in st.session_state:
-        st.session_state["marketplace_goal"] = "Beli Pasokan (Petani)"
+        st.session_state["marketplace_goal"] = goal_options[0]
 
-    # 1. Kategori Transaksi (Gaya Marketplace: Beli vs Jual)
+    # 1. Kategori Transaksi (Radio vertikal stabil dengan key bawaan Streamlit)
     goal_choice = st.radio(
         "Kategori Pasar",
-        options=["Beli Pasokan (Petani)", "Cari Pembeli (Demand)"],
-        index=0 if "Beli" in st.session_state.get("marketplace_goal", "") else 1,
-        horizontal=True,
+        options=goal_options,
+        key="marketplace_goal",
         label_visibility="collapsed",
     )
-    st.session_state["marketplace_goal"] = goal_choice
 
     # 2. Input Komoditas Utama (Search bar ala marketplace)
-    cur_com = st.session_state.get("marketplace_commodity", "Melon")
-    com_index = commodity_display.index(cur_com) if cur_com in commodity_display else 0
+    if "marketplace_commodity" not in st.session_state:
+        st.session_state["marketplace_commodity"] = "Melon"
+    if st.session_state["marketplace_commodity"] not in commodity_display:
+        st.session_state["marketplace_commodity"] = commodity_display[0]
+
     selected_commodity = st.selectbox(
         "Komoditas",
         options=commodity_display,
-        index=com_index,
+        key="marketplace_commodity",
         help="Ketik atau pilih komoditas hasil tani yang ingin dicari.",
     )
-    st.session_state["marketplace_commodity"] = selected_commodity
 
     # 3. Filter Wilayah
+    if "marketplace_provinces" not in st.session_state:
+        st.session_state["marketplace_provinces"] = ["Jawa Timur"]
+
     selected_provinces = st.multiselect(
         "Lokasi Wilayah",
         options=province_options,
-        default=["Jawa Timur"],
+        key="marketplace_provinces",
         help="Pilih wilayah target pencarian data.",
     )
 
@@ -598,7 +600,7 @@ with st.sidebar:
             selected_varieties = st.multiselect(
                 "Varietas Spesifik",
                 options=variety_options,
-                default=[],
+                key=f"marketplace_var_{com_key}",
                 help="Kosongkan jika mencari semua varietas.",
             )
         else:
@@ -610,6 +612,7 @@ with st.sidebar:
             max_value=1_000_000,
             value=500,
             step=100,
+            key="marketplace_min_vol",
             help="Batas minimal volume. Isi 0 untuk tanpa batas.",
         )
 
@@ -619,6 +622,7 @@ with st.sidebar:
             max_value=10_000_000,
             value=0,
             step=1000,
+            key="marketplace_max_price",
             help="Isi 0 jika tidak membatasi harga.",
         )
 
