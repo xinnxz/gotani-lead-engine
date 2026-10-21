@@ -522,9 +522,9 @@ with st.sidebar:
     st.divider()
 
     # --- Section: New Campaign Spec ---
-    st.markdown("<div style='font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;'>Kampanye Pencarian</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;'>Pencarian Pasar</div>", unsafe_allow_html=True)
 
-    # Inisialisasi template JSON bawaan jika session belum ada
+    # Inisialisasi template bawaan jika belum ada
     if "draft_spec" not in st.session_state:
         default_cid = new_campaign_id(conn)
         default_spec = CampaignSpec(
@@ -540,16 +540,11 @@ with st.sidebar:
         default_spec.volume.min = 500.0
         st.session_state["draft_spec"] = default_spec.to_json()
 
-    # =====================================================================
-    # FORM KAMPANYE BARU (menggantikan prompt AI & JSON editor)
-    # =====================================================================
     from agent.campaign import KNOWN_COMMODITIES
 
-    # Daftar komoditas dari database sinonim
     commodity_list = sorted(KNOWN_COMMODITIES.keys())
     commodity_display = [k.title() for k in commodity_list]
 
-    # Daftar provinsi (bisa diperluas di masa depan)
     province_options = [
         "Jawa Timur", "Jawa Tengah", "Jawa Barat", "DKI Jakarta",
         "Banten", "DI Yogyakarta", "Bali", "NTB", "NTT",
@@ -558,131 +553,79 @@ with st.sidebar:
         "Sulawesi Selatan", "Sulawesi Utara", "Papua",
     ]
 
-    # ── Quick Start Presets ──
-    if "form_commodity" not in st.session_state:
-        st.session_state["form_commodity"] = "Melon"
-        st.session_state["form_goal"] = "Cari Petani (Supply)"
-        st.session_state["form_provinces"] = ["Jawa Timur"]
-        st.session_state["form_volume"] = 500
-        st.session_state["form_varieties"] = []
+    # Session defaults
+    if "marketplace_commodity" not in st.session_state:
+        st.session_state["marketplace_commodity"] = "Melon"
+    if "marketplace_goal" not in st.session_state:
+        st.session_state["marketplace_goal"] = "Beli Pasokan (Petani)"
 
-    st.markdown("<div style='font-size:11px; font-weight:500; color:#64748b; margin-bottom:4px;'>Quick Start</div>", unsafe_allow_html=True)
-    qs1, qs2, qs3, qs4 = st.columns(4)
-    with qs1:
-        if st.button("🍈 Melon Jatim", use_container_width=True):
-            st.session_state["form_commodity"] = "Melon"
-            st.session_state["form_goal"] = "Cari Petani (Supply)"
-            st.session_state["form_provinces"] = ["Jawa Timur"]
-            st.session_state["form_volume"] = 500
-            st.session_state["form_varieties"] = []
-            st.rerun()
-    with qs2:
-        if st.button("🌶️ Cabai Rawit", use_container_width=True):
-            st.session_state["form_commodity"] = "Cabai"
-            st.session_state["form_goal"] = "Cari Petani (Supply)"
-            st.session_state["form_provinces"] = ["Jawa Timur"]
-            st.session_state["form_volume"] = 200
-            st.session_state["form_varieties"] = []
-            st.rerun()
-    with qs3:
-        if st.button("🫚 Jahe Rempah", use_container_width=True):
-            st.session_state["form_commodity"] = "Jahe"
-            st.session_state["form_goal"] = "Cari Petani (Supply)"
-            st.session_state["form_provinces"] = ["Jawa Timur"]
-            st.session_state["form_volume"] = 1000
-            st.session_state["form_varieties"] = []
-            st.rerun()
-    with qs4:
-        if st.button("🛒 Cari Pembeli", use_container_width=True):
-            st.session_state["form_commodity"] = "Melon"
-            st.session_state["form_goal"] = "Cari Pembeli (Demand)"
-            st.session_state["form_provinces"] = ["Jawa Timur"]
-            st.session_state["form_volume"] = 1000
-            st.session_state["form_varieties"] = []
-            st.rerun()
+    # 1. Kategori Transaksi (Gaya Marketplace: Beli vs Jual)
+    goal_choice = st.radio(
+        "Kategori Pasar",
+        options=["Beli Pasokan (Petani)", "Cari Pembeli (Demand)"],
+        index=0 if "Beli" in st.session_state.get("marketplace_goal", "") else 1,
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+    st.session_state["marketplace_goal"] = goal_choice
 
-    # Resolve defaults from session state
-    _def_commodity = st.session_state.get("form_commodity", "Melon")
-    _def_goal = st.session_state.get("form_goal", "Cari Petani (Supply)")
-    _def_provinces = st.session_state.get("form_provinces", ["Jawa Timur"])
-    _def_volume = st.session_state.get("form_volume", 500)
+    # 2. Input Komoditas Utama (Search bar ala marketplace)
+    cur_com = st.session_state.get("marketplace_commodity", "Melon")
+    com_index = commodity_display.index(cur_com) if cur_com in commodity_display else 0
+    selected_commodity = st.selectbox(
+        "Komoditas",
+        options=commodity_display,
+        index=com_index,
+        help="Ketik atau pilih komoditas hasil tani yang ingin dicari.",
+    )
+    st.session_state["marketplace_commodity"] = selected_commodity
 
-    with st.form("campaign_form", clear_on_submit=False):
-        st.markdown("<div style='font-size:13px; font-weight:600; color:#16a34a; margin-bottom:6px;'>Konfigurasi Kampanye</div>", unsafe_allow_html=True)
+    # 3. Filter Wilayah
+    selected_provinces = st.multiselect(
+        "Lokasi Wilayah",
+        options=province_options,
+        default=["Jawa Timur"],
+        help="Pilih wilayah target pencarian data.",
+    )
 
-        # Baris 1: Komoditas + Tujuan
-        fc_r1c1, fc_r1c2 = st.columns([2, 1.5])
-        with fc_r1c1:
-            selected_commodity = st.selectbox(
-                "Komoditas",
-                options=commodity_display,
-                index=commodity_display.index(_def_commodity) if _def_commodity in commodity_display else 0,
-                help="Pilih komoditas utama yang ingin dicari."
+    # 4. Filter Lanjutan (Collapsible, rapi seperti filter marketplace)
+    with st.expander("Filter Tambahan", expanded=False):
+        com_key = selected_commodity.lower()
+        synonyms = KNOWN_COMMODITIES.get(com_key, [])
+        variety_options = [s.title() for s in synonyms if s.lower() != com_key]
+
+        if variety_options:
+            selected_varieties = st.multiselect(
+                "Varietas Spesifik",
+                options=variety_options,
+                default=[],
+                help="Kosongkan jika mencari semua varietas.",
             )
-        with fc_r1c2:
-            _goal_options = ["Cari Petani (Supply)", "Cari Pembeli (Demand)"]
-            goal_display = st.radio(
-                "Tujuan Pencarian",
-                _goal_options,
-                index=_goal_options.index(_def_goal) if _def_goal in _goal_options else 0,
-                horizontal=True,
-                help="Supply = mencari penjual/petani. Demand = mencari pembeli/toko."
-            )
+        else:
+            selected_varieties = []
 
-        # Baris 2: Wilayah + Volume Minimum
-        fc_r2c1, fc_r2c2 = st.columns([2, 1])
-        with fc_r2c1:
-            selected_provinces = st.multiselect(
-                "Wilayah Target",
-                options=province_options,
-                default=_def_provinces,
-                help="Pilih satu atau lebih provinsi target pencarian."
-            )
-        with fc_r2c2:
-            min_volume = st.number_input(
-                "Min. Volume (kg)",
-                min_value=0,
-                max_value=1000000,
-                value=_def_volume,
-                step=100,
-                help="Volume minimal yang diinginkan (dalam kilogram). Isi 0 jika tidak ada batas."
-            )
+        min_volume = st.number_input(
+            "Minimal Volume (kg)",
+            min_value=0,
+            max_value=1_000_000,
+            value=500,
+            step=100,
+            help="Batas minimal volume. Isi 0 untuk tanpa batas.",
+        )
 
-        # Baris 3: Varietas (opsional) + Harga Maks (opsional)
-        # Dapatkan varietas yang tersedia untuk komoditas yang dipilih
-        commodity_key = selected_commodity.lower()
-        available_synonyms = KNOWN_COMMODITIES.get(commodity_key, [])
-        # Filter hanya yang bukan nama komoditas itu sendiri (ambil varietas saja)
-        available_varieties = [s.title() for s in available_synonyms if s.lower() != commodity_key]
+        max_price = st.number_input(
+            "Batas Harga Tertinggi (Rp/kg)",
+            min_value=0,
+            max_value=10_000_000,
+            value=0,
+            step=1000,
+            help="Isi 0 jika tidak membatasi harga.",
+        )
 
-        fc_r3c1, fc_r3c2 = st.columns([2, 1])
-        with fc_r3c1:
-            if available_varieties:
-                selected_varieties = st.multiselect(
-                    "Varietas (Opsional)",
-                    options=available_varieties,
-                    help="Pilih varietas spesifik yang dicari. Kosongkan untuk semua varietas."
-                )
-            else:
-                selected_varieties = []
-                st.text_input("Varietas (Opsional)", value="Semua varietas", disabled=True)
-        with fc_r3c2:
-            max_price = st.number_input(
-                "Maks. Harga (Rp/kg, opsional)",
-                min_value=0,
-                max_value=10000000,
-                value=0,
-                step=1000,
-                help="Batas harga maksimal per kg. Isi 0 jika tidak ada batas."
-            )
-
-        # Tombol Submit
-        submitted = st.form_submit_button("Jalankan Pipeline", type="primary", use_container_width=True)
-
-    if submitted:
-        # Bangun CampaignSpec dari form
+    # 5. Tombol Pencarian Marketplace
+    if st.button("Cari Prospek", type="primary", use_container_width=True):
         cid = new_campaign_id(conn)
-        goal_val = "find_supply" if "Supply" in goal_display else "find_demand"
+        goal_val = "find_supply" if "Beli" in goal_choice else "find_demand"
         target_entity_val = "petani / kelompok tani" if goal_val == "find_supply" else "toko buah / distributor / pengepul"
 
         spec = CampaignSpec(
@@ -692,22 +635,27 @@ with st.sidebar:
             business_context=f"Pencarian {'pasokan' if goal_val == 'find_supply' else 'permintaan'} {selected_commodity}",
         )
         spec.product.name = selected_commodity
-        spec.product.synonyms = [s.lower() for s in available_synonyms] if available_synonyms else [commodity_key]
-        if selected_varieties:
+        com_key = selected_commodity.lower()
+        syns = KNOWN_COMMODITIES.get(com_key, [])
+        spec.product.synonyms = [s.lower() for s in syns] if syns else [com_key]
+        if 'selected_varieties' in locals() and selected_varieties:
             spec.product.attributes["variety"] = [v.lower() for v in selected_varieties]
         spec.location.include = selected_provinces if selected_provinces else ["Jawa Timur"]
-        spec.volume.min = float(min_volume) if min_volume > 0 else None
-        if max_price > 0:
-            spec.price.max = float(max_price)
+        
+        min_v = min_volume if 'min_volume' in locals() else 500
+        spec.volume.min = float(min_v) if min_v > 0 else None
+        
+        max_p = max_price if 'max_price' in locals() else 0
+        if max_p > 0:
+            spec.price.max = float(max_p)
 
-        # Simpan ke session state & jalankan
         st.session_state["draft_spec"] = spec.to_json()
         st.session_state["spec_notice"] = {
             "product": spec.product.name,
-            "goal": "Pasokan (Petani)" if goal_val == "find_supply" else "Permintaan (Pembeli)",
+            "goal": "Pasokan Petani" if goal_val == "find_supply" else "Permintaan Pembeli",
             "location": ", ".join(spec.location.include),
             "volume": f"{spec.volume.min:g} kg" if spec.volume.min else "Bebas",
-            "mode": "Form Kampanye",
+            "mode": "Pencarian Pasar",
             "fallback": False,
         }
 
@@ -721,33 +669,24 @@ with st.sidebar:
                 pipe_res = asyncio.run(pipe.run()) or {}
                 raw_cnt = pipe_res.get("raw_items_saved", 0)
                 lead_cnt = pipe_res.get("new_leads_saved", 0)
-                status_box.update(label="Pipeline Selesai!", state="complete", expanded=False)
+                status_box.update(label="Pencarian Selesai", state="complete", expanded=False)
                 if raw_cnt == 0:
-                    st.session_state["notify_info"] = f"Pencarian selesai untuk '{spec.product.name}'. Tidak ditemukan postingan baru (seluruh data mungkin sudah ada di database atau tidak ada postingan aktif dalam 35 hari terakhir). Silakan coba komoditas lain atau gunakan tombol 'Muat Demo Komprehensif' di sidebar."
+                    st.session_state["notify_info"] = f"Pencarian selesai untuk '{spec.product.name}'. Tidak ditemukan postingan baru dalam 35 hari terakhir. Silakan gunakan tombol 'Muat Demo Komprehensif' di menu database untuk melihat simulasi lengkap."
                 else:
-                    st.session_state["notify_success"] = f"Pipeline berhasil! Ditemukan {raw_cnt} postingan mentah dan {lead_cnt} prospek terverifikasi baru untuk komoditas '{spec.product.name}'."
+                    st.session_state["notify_success"] = f"Pencarian berhasil. Ditemukan {raw_cnt} postingan mentah dan {lead_cnt} prospek terverifikasi untuk '{spec.product.name}'."
                 time.sleep(1)
                 st.rerun()
         except Exception as e:
             st.error(f"Kesalahan pada eksekusi pipeline: {e}")
 
-    # Tampilkan kartu konfirmasi jika spesifikasi baru saja disusun
+    # Indikator ringkas spesifikasi aktif
     notice = st.session_state.get("spec_notice")
     if notice:
-        fallback_html = '<div style="font-size:10px; color:#b45309; margin-top:4px;">* Catatan: Kuota online Gemini sedang penuh/limit, dialihkan otomatis ke Rule-Based Engine.</div>' if notice.get('fallback') else ''
         st.markdown(f"""
-        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:10px; margin-top:6px; margin-bottom:10px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-weight:600; color:#166534; font-size:12px;">Spesifikasi Aktif</span>
-                <span style="font-size:10px; background:#dcfce7; color:#15803d; padding:1px 6px; border-radius:4px; font-weight:500;">{notice['mode']}</span>
-            </div>
-            <div style="font-size:11px; color:#14532d; margin-top:5px; line-height:1.4;">
-                &bull; <b>Komoditas:</b> {notice['product']}<br>
-                &bull; <b>Tujuan:</b> {notice['goal']}<br>
-                &bull; <b>Wilayah:</b> {notice['location']}<br>
-                &bull; <b>Min. Volume:</b> {notice['volume']}
-            </div>
-            {fallback_html}
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px; margin-top:8px; margin-bottom:8px; font-size:11px; color:#334155; line-height:1.5;">
+            <div style="font-weight:600; color:#0f172a; margin-bottom:2px;">Filter Aktif:</div>
+            Komoditas: <b>{notice['product']}</b> ({notice['goal']})<br>
+            Wilayah: {notice['location']} | Min. {notice['volume']}
         </div>
         """, unsafe_allow_html=True)
 
