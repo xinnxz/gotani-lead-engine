@@ -288,6 +288,27 @@ def parse_posted_date(text: str | None, raw_date: str | None = None) -> str | No
             except ValueError:
                 pass
 
+    # 6b. Cek tanggal Day Month TANPA tahun (Facebook: "29 March", "5 October", "12 mei")
+    # Ini paling sering muncul di snippet Google dari Facebook
+    m_date_no_year = re.search(r"\b(\d{1,2})\s+([a-z]+)\b", low)
+    if m_date_no_year:
+        d_val = int(m_date_no_year.group(1))
+        m_name = m_date_no_year.group(2)
+        mo_val = INDONESIAN_MONTHS.get(m_name)
+        if mo_val and 1 <= d_val <= 31:
+            # Asumsi tahun: jika bulan sudah lewat di tahun ini, berarti tahun ini
+            # Jika bulan belum lewat tapi tanggalnya > hari ini, bisa tahun ini juga
+            # Intinya: coba tahun ini dulu
+            y_guess = now.year
+            try:
+                guessed = datetime(y_guess, mo_val, d_val).date()
+                # Jika tanggal di masa depan > 7 hari, mungkin tahun lalu
+                if (guessed - now.date()).days > 7:
+                    guessed = datetime(y_guess - 1, mo_val, d_val).date()
+                return guessed.isoformat()
+            except ValueError:
+                pass
+
     # 7. Cek tanggal eksplisit format Month Day Year (Facebook timestamp: "December 12, 2024", "Dec 12, 2024")
     m_mdy = re.search(r"\b([a-z]+)\s+(\d{1,2}),?\s+(\d{4})\b", low)
     if m_mdy:
@@ -298,6 +319,22 @@ def parse_posted_date(text: str | None, raw_date: str | None = None) -> str | No
         if mo_val and 1 <= d_val <= 31:
             try:
                 return datetime(y_val, mo_val, d_val).date().isoformat()
+            except ValueError:
+                pass
+
+    # 7b. Cek tanggal Month Day TANPA tahun (Facebook English: "March 29", "Oct 5")
+    m_md_no_year = re.search(r"\b([a-z]+)\s+(\d{1,2})\b", low)
+    if m_md_no_year:
+        m_name = m_md_no_year.group(1)
+        d_val = int(m_md_no_year.group(2))
+        mo_val = INDONESIAN_MONTHS.get(m_name)
+        if mo_val and 1 <= d_val <= 31:
+            y_guess = now.year
+            try:
+                guessed = datetime(y_guess, mo_val, d_val).date()
+                if (guessed - now.date()).days > 7:
+                    guessed = datetime(y_guess - 1, mo_val, d_val).date()
+                return guessed.isoformat()
             except ValueError:
                 pass
 

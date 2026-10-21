@@ -115,3 +115,69 @@ class TestScoringDynamicYear:
         # Harus mendapat penalti kadaluwarsa
         assert score == 0
         assert any("KADALUWARSA" in r for r in reasons)
+
+# ============================================
+# Tests untuk parse_posted_date: Day Month tanpa tahun
+# ============================================
+
+class TestParseDateWithoutYear:
+    """Test deteksi tanggal Facebook format '29 March' tanpa tahun."""
+
+    def test_day_month_english_march(self):
+        """'29 March' harus terdeteksi sebagai 29 Maret tahun ini."""
+        from agent.normalize import parse_posted_date
+        result = parse_posted_date("Ravindra . 29 March")
+        assert result is not None
+        assert result.endswith("-03-29")
+
+    def test_day_month_english_october(self):
+        """'5 October' harus terdeteksi sebagai 5 Oktober."""
+        from agent.normalize import parse_posted_date
+        result = parse_posted_date("5 October")
+        assert result is not None
+        assert "-10-05" in result
+
+    def test_month_day_english(self):
+        """'March 29' (English format) harus terdeteksi."""
+        from agent.normalize import parse_posted_date
+        result = parse_posted_date("March 29")
+        assert result is not None
+        assert "-03-29" in result
+
+    def test_day_month_indonesian(self):
+        """'12 mei' harus terdeteksi sebagai 12 Mei."""
+        from agent.normalize import parse_posted_date
+        result = parse_posted_date("12 mei")
+        assert result is not None
+        assert "-05-12" in result
+
+    def test_old_date_detected_as_stale(self):
+        """Post dari 29 March (7 bulan lalu) harus terdeteksi > 35 hari."""
+        from agent.normalize import parse_posted_date
+        from datetime import datetime
+        result = parse_posted_date("29 March")
+        assert result is not None
+        dt = datetime.fromisoformat(result)
+        age = (datetime.now() - dt).days
+        # Maret ke Oktober = minimal 200 hari
+        assert age > 35, f"Post 29 March seharusnya stale (age={age} hari)"
+
+    def test_recent_date_not_stale(self):
+        """Post dari bulan ini harus fresh (< 35 hari)."""
+        from agent.normalize import parse_posted_date
+        from datetime import datetime
+        # Gunakan tanggal awal bulan ini
+        now = datetime.now()
+        month_name = ["january","february","march","april","may","june",
+                      "july","august","september","october","november","december"][now.month - 1]
+        result = parse_posted_date(f"1 {month_name}")
+        assert result is not None
+        dt = datetime.fromisoformat(result)
+        age = (datetime.now() - dt).days
+        assert age <= 35, f"Post awal bulan ini seharusnya fresh (age={age} hari)"
+
+    def test_no_dangerous_today_fallback(self):
+        """Teks tanpa tanggal harus return None, BUKAN hari ini."""
+        from agent.normalize import parse_posted_date
+        result = parse_posted_date("Ready melon premium grade A")
+        assert result is None, "Teks tanpa tanggal harus return None"

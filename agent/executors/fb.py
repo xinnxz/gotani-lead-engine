@@ -304,11 +304,10 @@ class FacebookExecutor:
                             logger.info(f"Mengabaikan postingan memuat tahun lampau: {sub_text[:60]}")
                             continue
 
-                        # Smart fallback: jika Google tbs=qdr:m (past month) tapi tidak ada tanggal,
-                        # assign tanggal hari ini (asumsi fresh karena Google filter 1 bulan terakhir)
+                        # Tanggal final: gunakan hasil deteksi, atau None jika tidak terdeteksi
+                        # TIDAK boleh fallback ke hari ini — karena Google tbs:qdr:m
+                        # tidak selalu akurat (bisa return post lama yang baru di-reindex)
                         final_date = detected_date
-                        if not final_date:
-                            final_date = _dt.now().strftime("%Y-%m-%d")
 
                         all_posts_data.append({
                             "platform": platform_tag,
