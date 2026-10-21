@@ -611,7 +611,7 @@ with st.sidebar:
             "Minimal Volume (kg)",
             min_value=0,
             max_value=1_000_000,
-            value=500,
+            value=0,
             step=100,
             key="marketplace_min_vol",
             help="Batas minimal volume. Isi 0 untuk tanpa batas.",
