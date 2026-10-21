@@ -149,6 +149,8 @@ class Pipeline:
                     price = result.get("price_value")
                     price_unit = result.get("price_unit")
                     unit_in_kg = to_kg(1.0, price_unit)
+                    # Jika unit standar (kg, ton, kuintal), konversi ke /kg
+                    # Jika unit non-standar (kresek, ikat, dll), price_per_kg = None (jujur)
                     price_kg = (float(price) / unit_in_kg) if price and unit_in_kg else None
                     
                     vol = result.get("volume_value")
@@ -211,15 +213,15 @@ class Pipeline:
                     self.conn.execute(
                         """INSERT INTO listings (
                             raw_item_id, campaign_id, intent, entity_name,
-                            product, volume_kg, price_per_kg, location_text,
+                            product, volume_kg, volume_unit, price_per_kg, price_unit, location_text,
                             kabupaten, provinsi, available_text, available_date,
                             contact_phone, contact_wa, duplicate_of,
                             attributes_json, evidence_json, flags_json, relevance, 
                             confidence, score_reasons_json, extractor, created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (
                             row["id"], self.campaign.campaign_id, safe_intent, result.get("entity_name"),
-                            result.get("product"), vol_kg, price_kg, loc_text,
+                            result.get("product"), vol_kg, result.get("volume_unit"), price_kg, result.get("price_unit"), loc_text,
                             result.get("kabupaten"), result.get("provinsi"), result.get("available_text"),
                             avail_date, contact_phone, contact_wa, dup_of,
                             db.dumps(result), db.dumps(result.get("evidence", {})),

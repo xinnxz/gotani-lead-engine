@@ -905,7 +905,9 @@ with tab1:
             l.product AS Komoditas,
             l.attributes_json AS Atribut,
             l.volume_kg AS Volume_Kg,
+            l.volume_unit AS Volume_Unit,
             l.price_per_kg AS Harga_Kg,
+            l.price_unit AS Price_Unit,
             l.location_text AS Lokasi,
             l.contact_phone AS Telepon,
             l.relevance AS Rel_Score,
@@ -956,6 +958,41 @@ with tab1:
             return first_p
 
         df_leads["Kontak"] = df_leads["Telepon"].apply(format_display_phone)
+
+        # Format volume + unit asli (jika ada)
+        def format_volume(row):
+            vol = row.get("Volume_Kg")
+            unit = row.get("Volume_Unit")
+            if vol is None or (hasattr(vol, '__class__') and vol.__class__.__name__ != 'str' and pd.isna(vol)):
+                return "-"
+            try:
+                v = float(vol)
+                if v <= 0:
+                    return "-"
+            except (ValueError, TypeError):
+                return "-"
+            u = str(unit).strip() if (unit is not None and not pd.isna(unit) and str(unit).lower() not in ("none", "nan", "")) else "kg"
+            return f"{v:g} {u}"
+
+        df_leads["Volume"] = df_leads.apply(format_volume, axis=1)
+
+        # Format harga + unit asli (jika ada)
+        def format_harga(row):
+            price = row.get("Harga_Kg")
+            unit = row.get("Price_Unit")
+            if price is None or (hasattr(price, '__class__') and price.__class__.__name__ != 'str' and pd.isna(price)):
+                # Cek apakah ada harga non-kg di attributes
+                return "-"
+            try:
+                p = float(price)
+                if p <= 0:
+                    return "-"
+            except (ValueError, TypeError):
+                return "-"
+            u = str(unit).strip() if (unit is not None and not pd.isna(unit) and str(unit).lower() not in ("none", "nan", "")) else "kg"
+            return f"Rp {p:,.0f}/{u}"
+
+        df_leads["Harga"] = df_leads.apply(format_harga, axis=1)
         df_leads["Nama"] = df_leads["Nama"].apply(lambda n: str(n).strip() if (n is not None and not pd.isna(n) and str(n).lower() not in ("none", "nan", "")) else "-")
         df_leads["Lokasi"] = df_leads["Lokasi"].apply(lambda l: str(l).strip() if (l is not None and not pd.isna(l) and str(l).lower() not in ("none", "nan", "")) else "-")
 
@@ -1038,7 +1075,7 @@ with tab1:
             )
 
         display_cols = [
-            "id", "Komoditas", "Kategori", "Volume_Kg", "Harga_Kg", 
+            "id", "Komoditas", "Kategori", "Volume", "Harga", 
             "Lokasi", "Nama", "Kontak", "Chat_WA", "Rel_Score", "Review", "Label_Sumber", "URL"
         ]
         
@@ -1054,8 +1091,8 @@ with tab1:
                 "id": st.column_config.NumberColumn("ID", width="small"),
                 "Komoditas": st.column_config.TextColumn("Komoditas", width="small"),
                 "Kategori": st.column_config.TextColumn("Kategori", width="small"),
-                "Volume_Kg": st.column_config.NumberColumn("Volume (Kg)", format="%d", width="small"),
-                "Harga_Kg": st.column_config.NumberColumn("Harga/Kg", format="Rp %d", width="small"),
+                "Volume": st.column_config.TextColumn("Volume", width="small", help="Volume asli dengan unit (kg, kresek, ikat, dll). Jika unit non-standar, tidak dikonversi ke kg"),
+                "Harga": st.column_config.TextColumn("Harga", width="small", help="Harga asli dengan unit per satuan sebenarnya (per kg, per kresek, per ikat, dll)"),
                 "Lokasi": st.column_config.TextColumn("Lokasi", width="medium"),
                 "Nama": st.column_config.TextColumn("Pemosting", width="medium"),
                 "Kontak": st.column_config.TextColumn("Kontak / No. HP", width="medium", help="Nomor telepon/WhatsApp riil hasil ekstraksi dari postingan. Tampil '-' jika postingan tidak memuat kontak"),

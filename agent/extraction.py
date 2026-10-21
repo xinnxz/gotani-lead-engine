@@ -25,29 +25,60 @@ ATURAN KLASIFIKASI & VALIDASI KETAT:
    - Dilarang keras melabeli komoditas sebagai target kampanye jika isi postingan menjual komoditas berbeda!
    - Ekstrak "variety" (misal: "madesta", "golden", "ori 212") dan "grade" (misal: "grade A", "super", "BS") jika ada.
 
-3. ANGKA & SATUAN (Wajib akurat):
+3. NAMA PEMOSTING (entity_name) - SANGAT PENTING:
+   - Snippet Google dari Facebook biasanya mengandung pola:
+     "NamaGrup · NamaAuthor · TanggalPosting · 🌐"  atau
+     "NamaGrup · NamaAuthor · Tanggal"  atau
+     "NamaAuthor - NamaGrup · Tanggal"
+   - NamaAuthor biasanya 2-4 kata, diawali huruf kapital, misal: "Al Farisy", "Pak Budi Santoso", "Ahmad Rizal".
+   - Kadang author ada di akhir snippet: "... minat WA · by NamaAuthor"
+   - WAJIB ekstrak entity_name = NamaAuthor (bukan nama grup!).
+   - Jika tidak ditemukan, isi null. DILARANG MENGARANG NAMA.
+
+4. LOKASI (location_text) - CERDAS:
+   - Ekstrak lokasi dari SEMUA sumber yang ada:
+     a) Teks postingan: "kirim dari Nganjuk", "alamat Lempung", "pcc lempung"
+     b) Nama Grup Facebook: "KUNIR GANDEKAN KARANGGAYAM (serba-serbi)" → lokasi: Karanggayam atau Kunir
+     c) Nama pasar/kecamatan informal: "ps induk kramat jati", "pasar mangga dua"
+   - "pcc" = singkatan tempat/pieces, perhatikan konteks.
+   - Isi lokasi asli sebagaimana tertulis. Jangan tebak jika tidak ada.
+
+5. ANGKA & SATUAN (Wajib akurat):
    - Field yang tidak tertulis di teks WAJIB diisi null. DILARANG MENGARANG ATAU MENEBAK.
    - volume_value: angka nominal (misal: "2 ton" → 2, "5 kuintal" → 5, "500 kg" → 500).
-   - volume_unit: satuan aslinya ("kg", "kuintal", "kw", "ton", "petak").
-   - price_value: ubah bahasa gaul harga ke Rupiah penuh (contoh: "5rb" → 5000, "7,5k" → 7500, "10.000" → 10000).
-   - price_unit: satuan harga (biasanya "kg", "ikat", "butir", "borongan").
+   - volume_unit: satuan aslinya (bisa: "kg", "kuintal", "kw", "ton", "petak", "kresek", "karung", "ikat", "biji", "butir", "dos", "pak", "polybag", "tandan", "sisir", "truk", "pickup").
+     * PENTING: Jika teks tulis "1 kresek", volume_unit = "kresek", BUKAN "kg".
+     * Jika satuan non-standar (kresek, ikat, dll), JANGAN konversi ke kg. Tulis apa adanya.
+   - price_value: ubah bahasa gaul harga ke Rupiah penuh (contoh: "5rb" → 5000, "7,5k" → 7500, "10.000" → 10000, "15k" → 15000).
+   - price_unit: satuan harga ASLI. Bisa: "kg", "ikat", "butir", "borongan", "kresek", "karung", "dos", "pak", "biji", "tandan", "sisir", "ton", "kuintal".
+     * PENTING: "15k saja" per kresek → price_unit = "kresek", BUKAN "kg"!
+     * Jika tidak jelas per apa, cek konteks kalimat.
 
-4. LOKASI & WAKTU:
-   - location_text: nama desa, kecamatan, kabupaten, atau pasar yang disebut di postingan (misal: "Minggirsari Blitar", "Kec. Pare").
-   - available_text: waktu panen/ketersediaan (misal: "panen besok lusa", "ready tiap hari", "petik minggu depan").
+6. SLANG & BAHASA GAUL PETANI:
+   - "15k" / "15rb" = Rp 15.000
+   - "nyus" / "nyuss" = enak/manis (deskripsi rasa, abaikan)
+   - "pcc" = bisa berarti "pieces" atau nama tempat (lihat konteks)
+   - "suluhan" = varietas/jenis lokal (bukan lokasi)
+   - "ready" / "redi" = tersedia
+   - "borongan" = beli semua sekaligus
+   - "eceran" / "ecer" = beli satuan
+   - "japri" = jalur pribadi (chat privat)
+   - "COD" = cash on delivery
+   - "bs" / "BS" = grade bawah (below standard)
+   - "super" = grade atas
 
-5. KONTAK & PRIVASI:
+7. KONTAK & PRIVASI:
    - Token seperti [PHONE_1] atau [EMAIL_1] adalah nomor kontak asli yang telah disensor demi privasi.
    - SALIN token tersebut apa adanya, jangan dimodifikasi atau ditebak.
 
-6. FLAGS (Tanda Peringatan):
+8. FLAGS (Tanda Peringatan):
    - Beri flag jika terdeteksi: ["calo", "reseller", "indikasi_penipuan", "harga_tidak_wajar", "stok_tidak_pasti"].
 """
 
 FORMAT_HINT = (
-    '[{"idx":0,"intent":"supply","entity_name":"Pak Budi","product":"melon","variety":"madesta","grade":"super",'
-    '"volume_value":500,"volume_unit":"kg","price_value":7000,"price_unit":"kg","location_text":"Nganjuk",'
-    '"available_text":"panen lusa","flags":[],"evidence":{"product":"melon madesta","volume":"500 kg","price":"7rb/kg"}}]'
+    '[{"idx":0,"intent":"supply","entity_name":"Al Farisy","product":"melon","variety":"amanda","grade":null,'
+    '"volume_value":1,"volume_unit":"kresek","price_value":15000,"price_unit":"kresek","location_text":"Lempung, Karanggayam",'
+    '"available_text":"ready","flags":[],"evidence":{"product":"melon amanda","volume":"1 kresek","price":"15k/kresek","author":"Al Farisy","location_source":"nama grup"}}]'
 )
 
 

@@ -24,6 +24,12 @@ def connect(path: str | Path | None = None) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")  # baca & tulis bisa jalan bersamaan
     conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+    # Migrasi: tambah kolom baru jika belum ada (backward-compatible)
+    for col, typ in [("volume_unit", "TEXT"), ("price_unit", "TEXT")]:
+        try:
+            conn.execute(f"ALTER TABLE listings ADD COLUMN {col} {typ}")
+        except Exception:
+            pass  # Kolom sudah ada
     return conn
 
 
