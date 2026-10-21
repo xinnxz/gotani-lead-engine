@@ -139,3 +139,15 @@ def test_build_matches_export_dataframe():
     assert "Pak Joko" in df.iloc[0]["Rincian_Petani"]
     assert "085612345678" in df.iloc[0]["Kontak_Petani"]
 
+def test_draft_buyer_outreach_for_match_none_volume():
+    """Memastikan tidak crash saat needed_vol_kg adalah None."""
+    msg = draft_buyer_outreach_for_match(
+        buyer_name="UD Berkah",
+        commodity="jahe",
+        buyer_location="Kediri",
+        needed_vol_kg=None,
+        suggested_price=None,
+    )
+    assert "UD Berkah" in msg
+    assert "Jahe" in msg
+    assert "GoTani" in msg

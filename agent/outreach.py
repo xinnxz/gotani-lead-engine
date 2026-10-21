@@ -125,7 +125,7 @@ def draft_buyer_outreach_for_match(
     buyer_name: Any,
     commodity: str,
     buyer_location: Any,
-    needed_vol_kg: float,
+    needed_vol_kg: float | None = None,
     suggested_price: float | None = None,
     is_pool: bool = False,
     num_farmers: int = 1,
@@ -140,23 +140,28 @@ def draft_buyer_outreach_for_match(
     if suggested_price and suggested_price > 0:
         price_note = f"\nEstimasi penawaran harga sampai ke lokasi penerimaan adalah Rp {suggested_price:,.0f}/kg (sudah termasuk koordinasi logistik dan kurasi mutu)."
     
+    has_vol = (needed_vol_kg is not None and float(needed_vol_kg) > 0)
+    vol_target_desc = f"target {float(needed_vol_kg):g} kg" if has_vol else "kebutuhan volume Anda"
+    vol_prep_desc = f"dengan kesiapan volume {float(needed_vol_kg):g} kg " if has_vol else "dengan kapasitas volume yang siap kirim "
+    vol_req_desc = f" sebanyak {float(needed_vol_kg):g} kg" if has_vol else ""
+
     if is_pool and num_farmers > 1:
         locs_list = [_clean_str(l) for l in (farmer_locations or []) if _clean_str(l) and _clean_str(l) != "-"]
         locs_desc = f" ({', '.join(dict.fromkeys(locs_list))})" if locs_list else ""
         supply_desc = (
             f"tim GoTani telah menyiapkan program smart pooling dengan mengagregasi pasokan dari {num_farmers} petani mitra binaan terdekat{locs_desc} "
-            f"untuk memenuhi target {needed_vol_kg:g} kg secara terkonsolidasi."
+            f"untuk memenuhi {vol_target_desc} secara terkonsolidasi."
         )
     else:
         supply_desc = (
-            f"tim GoTani telah mengidentifikasi pasokan petani terverifikasi dengan kesiapan volume {needed_vol_kg:g} kg "
+            f"tim GoTani telah mengidentifikasi pasokan petani terverifikasi {vol_prep_desc}"
             "dan jadwal panen yang sesuai dengan kebutuhan Anda."
         )
 
     lines = [
         f"Halo tim {b_name}, salam hangat dari GoTani.",
         "",
-        f"Menindaklanjuti permintaan pasokan komoditas {commodity.title()} sebanyak {needed_vol_kg:g} kg{loc_buyer}, {supply_desc}",
+        f"Menindaklanjuti permintaan pasokan komoditas {commodity.title()}{vol_req_desc}{loc_buyer}, {supply_desc}",
         f"{price_note}",
         "",
         "Apakah kami dapat mengirimkan rincian spesifikasi mutu dan mendiskusikan jadwal rencana penerimaan barang lebih lanjut?",
@@ -188,10 +193,11 @@ def build_matches_export_dataframe(matches_list: list[dict]):
         for it in items:
             f_name = it.get("farmer_name") or "Petani"
             f_loc = it.get("farmer_location") or "-"
-            f_vol = it.get("allocated_kg", 0)
+            f_vol_val = it.get("allocated_kg")
+            f_vol_str = f"{float(f_vol_val):g} kg" if (f_vol_val is not None) else "volume tidak ditentukan"
             f_pr = it.get("farmer_price")
-            pr_str = f"Rp {f_pr:,.0f}/kg" if f_pr else "harga belum tertera"
-            farmer_summaries.append(f"{f_name} ({f_loc}, {f_vol:g} kg, {pr_str})")
+            pr_str = f"Rp {float(f_pr):,.0f}/kg" if (f_pr is not None) else "harga belum tertera"
+            farmer_summaries.append(f"{f_name} ({f_loc}, {f_vol_str}, {pr_str})")
             if it.get("farmer_phone"):
                 farmer_phones.append(str(it.get("farmer_phone")))
         
