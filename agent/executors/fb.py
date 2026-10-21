@@ -57,14 +57,20 @@ class FacebookExecutor:
             else:
                 if target_intent == "demand":
                     # Cari posting PEMBELI di Facebook (orang/bisnis yang butuh pasokan)
+                    # 1. Kueri dengan nomor kontak langsung
                     search_queries.append(f'site:facebook.com/groups "{clean_q}" (butuh OR cari OR beli OR terima OR tampung OR order) (wa OR "08" OR "628") {negatives}')
-                    search_queries.append(f'site:facebook.com "{clean_q}" (butuh OR dicari OR beli OR tampung) ("wa" OR "08" OR "628") {negatives}')
+                    # 2. Kueri kebutuhan organik tanpa paksaan nomor kontak
+                    search_queries.append(f'site:facebook.com/groups "{clean_q}" (butuh pasokan OR cari supplier OR siap tampung) {negatives}')
+                    # 3. Kueri profil pembeli publik
+                    search_queries.append(f'site:facebook.com "{clean_q}" (butuh OR dicari OR beli OR tampung) {negatives}')
                 else:
                     # Cari posting PENJUAL/PETANI di Facebook (default, supply)
-                    # Quote clean_q agar Google tidak mencocokkan komoditas lain (misal kelapa saat cari cabai)
+                    # 1. Kueri dengan kontak langsung (WA/HP)
                     search_queries.append(f'site:facebook.com/groups "{clean_q}" (ready OR panen OR jual OR petik OR diobral) (wa OR "08" OR "628") {negatives}')
-                    search_queries.append(f'site:facebook.com/groups "petani {clean_q}" (wa OR "08" OR "628") {negatives}')
-                    search_queries.append(f'site:facebook.com "{clean_q}" (panen OR ready OR jual) ("wa" OR "08" OR "628") {negatives}')
+                    # 2. Kueri panen organik alami di grup petani (menjaring post faktual tanpa paksaan no HP)
+                    search_queries.append(f'site:facebook.com/groups "{clean_q}" (panen raya OR siap petik OR ready di kebun OR panen segar) {negatives}')
+                    # 3. Kueri petani umum
+                    search_queries.append(f'site:facebook.com/groups "petani {clean_q}" (panen OR jual OR stok) {negatives}')
 
                 # Untuk kampanye demand, tambahkan pencarian bisnis lokal otomatis
                 if target_intent == "demand":

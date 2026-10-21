@@ -875,19 +875,42 @@ with tab1:
     if df_leads.empty:
         st.info("Belum ada data prospek yang memenuhi kriteria filter saat ini.")
     else:
+        def format_display_phone(phone_raw):
+            if phone_raw is None or pd.isna(phone_raw):
+                return "-"
+            p = str(phone_raw).strip()
+            if not p or p.lower() in ("none", "nan", "null", ""):
+                return "-"
+            # Jika ada beberapa nomor (dipisah koma), ambil nomor pertama
+            first_p = p.split(",")[0].strip()
+            digits = re.sub(r"\D", "", first_p)
+            if digits.startswith("62") and len(digits) >= 10:
+                digits = "0" + digits[2:]
+            if len(digits) == 10:
+                return f"{digits[:4]}-{digits[4:7]}-{digits[7:]}"
+            elif len(digits) == 11:
+                return f"{digits[:4]}-{digits[4:7]}-{digits[7:]}"
+            elif len(digits) >= 12:
+                return f"{digits[:4]}-{digits[4:8]}-{digits[8:12]}"
+            return first_p
+
+        df_leads["Kontak"] = df_leads["Telepon"].apply(format_display_phone)
+        df_leads["Nama"] = df_leads["Nama"].apply(lambda n: str(n).strip() if (n is not None and not pd.isna(n) and str(n).lower() not in ("none", "nan", "")) else "-")
+        df_leads["Lokasi"] = df_leads["Lokasi"].apply(lambda l: str(l).strip() if (l is not None and not pd.isna(l) and str(l).lower() not in ("none", "nan", "")) else "-")
+
         def make_lead_wa_link(row):
             phone = row.get("Telepon")
             if phone is None or pd.isna(phone):
                 return None
             phone_str = str(phone).strip()
-            if not phone_str or phone_str.lower() in ("nan", "none", "null"):
+            if not phone_str or phone_str.lower() in ("nan", "none", "null", "-", ""):
                 return None
             
             raw_name = row.get("Nama")
-            name_val = str(raw_name).strip() if (raw_name is not None and not pd.isna(raw_name)) else None
+            name_val = str(raw_name).strip() if (raw_name and raw_name != "-") else None
             
             raw_loc = row.get("Lokasi")
-            loc_val = str(raw_loc).strip() if (raw_loc is not None and not pd.isna(raw_loc)) else None
+            loc_val = str(raw_loc).strip() if (raw_loc and raw_loc != "-") else None
             
             raw_prod = row.get("Komoditas")
             prod_val = str(raw_prod).strip() if (raw_prod is not None and not pd.isna(raw_prod)) else "hasil tani"
@@ -955,7 +978,7 @@ with tab1:
 
         display_cols = [
             "id", "Komoditas", "Kategori", "Volume_Kg", "Harga_Kg", 
-            "Lokasi", "Chat_WA", "Rel_Score", "Review", "Label_Sumber", "URL"
+            "Lokasi", "Nama", "Kontak", "Chat_WA", "Rel_Score", "Review", "Label_Sumber", "URL"
         ]
         
         df_leads_display = df_leads.copy()
@@ -973,7 +996,9 @@ with tab1:
                 "Volume_Kg": st.column_config.NumberColumn("Volume (Kg)", format="%d", width="small"),
                 "Harga_Kg": st.column_config.NumberColumn("Harga/Kg", format="Rp %d", width="small"),
                 "Lokasi": st.column_config.TextColumn("Lokasi", width="medium"),
-                "Chat_WA": st.column_config.LinkColumn("WhatsApp", display_text="Hubungi WhatsApp", width="medium"),
+                "Nama": st.column_config.TextColumn("Pemosting", width="medium"),
+                "Kontak": st.column_config.TextColumn("Kontak / No. HP", width="medium", help="Nomor telepon/WhatsApp riil hasil ekstraksi dari postingan. Tampil '-' jika postingan tidak memuat kontak"),
+                "Chat_WA": st.column_config.LinkColumn("Aksi", display_text="Chat WhatsApp", width="small", help="Tautan langsung untuk chat WhatsApp. Kosong bila kontak tidak tersedia"),
                 "Rel_Score": st.column_config.ProgressColumn("Relevansi", min_value=0, max_value=100, format="%d%%", width="small"),
                 "Review": st.column_config.TextColumn("Status", width="small"),
                 "Label_Sumber": st.column_config.TextColumn("Tipe Sumber", width="small"),
