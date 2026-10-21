@@ -16,9 +16,14 @@ ATURAN KLASIFIKASI & VALIDASI KETAT:
    - "other": Iklan bibit, benih, pupuk, pestisida, alat/mesin tani, pinjaman modal, tanah kebun, atau jasa transportasi.
    - "irrelevant": Diskusi umum, tanya jawab tips berkebun, resep masakan, postingan hoax, atau komoditas yang TIDAK SESUAI dengan target kampanye.
 
-2. PENANGANAN KOMODITAS (PRODUCT):
-   - Jika postingan membahas komoditas yang berbeda dari yang dicari kampanye, set intent = "irrelevant".
-   - Ekstrak "variety" (misal: "madesta", "aromanis", "golden", "inthanon") dan "grade" (misal: "grade A", "super", "BS", "afkir") jika ada.
+2. PENANGANAN KOMODITAS (PRODUCT) - SANGAT KETAT:
+   - Judul postingan (baris pertama) seringkali adalah nama grup Facebook (misal: "Grup Petani Cabai & Kelapa").
+   - KAMU WAJIB memverifikasi apa yang BENAR-BENAR DITAWARKAN / DIBUTUHKAN pada ISI POSTINGAN (snippet).
+   - Jika isi postingan menjual kelapa, durian, atau komoditas lain padahal target kampanye adalah cabai, MAKA:
+     * product: isi dengan komoditas asli yang dijual (misal "kelapa")
+     * intent: WAJIB diisi "irrelevant"
+   - Dilarang keras melabeli komoditas sebagai target kampanye jika isi postingan menjual komoditas berbeda!
+   - Ekstrak "variety" (misal: "madesta", "golden", "ori 212") dan "grade" (misal: "grade A", "super", "BS") jika ada.
 
 3. ANGKA & SATUAN (Wajib akurat):
    - Field yang tidak tertulis di teks WAJIB diisi null. DILARANG MENGARANG ATAU MENEBAK.

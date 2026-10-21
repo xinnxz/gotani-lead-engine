@@ -758,11 +758,12 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     fc1, fc2, fc3 = st.columns([1.5, 1.5, 1.2])
     with fc1:
-        min_rel = st.slider("Batas Minimum Relevansi", 0, 100, 0, 5)
+        min_rel = st.slider("Batas Minimum Relevansi", 0, 100, 65, 5)
     with fc2:
-        min_conf = st.slider("Batas Minimum Confidence", 0, 100, 0, 5)
+        min_conf = st.slider("Batas Minimum Confidence", 0, 100, 50, 5)
     with fc3:
         status_filter = st.selectbox("Status Verifikasi", ["Semua", "pending", "approved", "rejected"], index=0)
+    st.caption("Menampilkan prospek terverifikasi berkualitas tinggi (Relevansi ≥ 65%, Confidence ≥ 50% sesuai PRD §7.5). Geser slider ke 0 jika ingin meninjau seluruh data mentah.")
 
     query_str = """
         SELECT

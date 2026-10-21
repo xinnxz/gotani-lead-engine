@@ -47,8 +47,20 @@ def relevance(listing: dict, spec: CampaignSpec, raw_text: str) -> tuple[int, li
         why.append(f"+40 produk cocok ({spec.product.name})")
     else:
         # Penalti keras: jika produk tidak cocok sama sekali, skor tidak boleh tinggi
-        score -= 20
-        why.append("-20 PENALTI: produk sama sekali tidak cocok")
+        score -= 30
+        why.append("-30 PENALTI: produk sama sekali tidak cocok")
+
+    # Penalti Usia / Kedaluwarsa (PRD F2.3: komoditas panen basi jika postingan sudah > 90 hari / berbulan-bulan lalu)
+    posted_date_str = listing.get("posted_at")
+    if posted_date_str:
+        age_days = _age_days(posted_date_str, datetime.now())
+        if age_days is not None:
+            if age_days > 90:
+                score -= 60
+                why.append(f"-60 PENALTI KADALUWARSA: postingan sudah {age_days:.0f} hari lalu (> 3 bulan)")
+            elif age_days > 45:
+                score -= 20
+                why.append(f"-20 penalti usia postingan ({age_days:.0f} hari lalu)")
 
     intent_val = listing.get("intent")
     if intent_val == spec.target_intent:
@@ -124,6 +136,9 @@ def confidence(listing: dict, spec: CampaignSpec, platform: str, confirmations: 
         why.append(f"+{pts} post {age:.0f} hari lalu")
     else:
         why.append(f"+0 post terlalu lama ({age:.0f} hari > {spec.freshness_days})")
+        if age is not None and age > 90:
+            score = min(score, 15.0)
+            why.append(f"Confidence dibatasi maksimal 15% karena postingan sudah kadaluwarsa ({age:.0f} hari lalu)")
 
     if listing.get("contact_wa") or listing.get("contact_phone") or listing.get("contact_email"):
         score += 25
@@ -161,6 +176,19 @@ def confidence(listing: dict, spec: CampaignSpec, platform: str, confirmations: 
     else:
         score += 10
         why.append("+10 angka wajar, tidak ada pola spam")
+
+    # Penalti kelengkapan data komersial (jika tidak ada kontak, volume, dan harga)
+    has_contact = bool(listing.get("contact_wa") or listing.get("contact_phone") or listing.get("contact_email"))
+    has_vol = bool(listing.get("volume_kg") or listing.get("volume_value"))
+    has_price = bool(listing.get("price_per_kg") or listing.get("price_value"))
+    if not has_contact and not has_vol and not has_price:
+        score = min(score, 30.0)
+        why.append("Confidence dibatasi maksimal 30% karena minim data komersial (tanpa kontak, volume, dan harga)")
+
+    # Batasi confidence secara absolut jika postingan sudah kadaluwarsa (> 90 hari)
+    if age is not None and age > 90:
+        score = min(score, 20.0)
+        why.append(f"Confidence dibatasi maksimal 20% karena postingan sudah kadaluwarsa ({age:.0f} hari lalu)")
 
     return round(min(score, 100)), why
 

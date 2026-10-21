@@ -65,6 +65,7 @@ class Pipeline:
                     platform=p.get("platform", "facebook"),
                     raw_text=p["raw_text"],
                     url=p["url"],
+                    posted_at=p.get("posted_at"),
                     run_id=run_id
                 )
                 if saved:
@@ -80,7 +81,7 @@ class Pipeline:
             
             # 4. Ambil raw_items yang belum diproses (belum masuk listings)
             cur = self.conn.execute(
-                "SELECT id, raw_text, platform, url, fetched_at FROM raw_items WHERE campaign_id=? AND id NOT IN (SELECT raw_item_id FROM listings)",
+                "SELECT id, raw_text, platform, url, fetched_at, posted_at FROM raw_items WHERE campaign_id=? AND id NOT IN (SELECT raw_item_id FROM listings)",
                 (self.campaign.campaign_id,)
             )
             unprocessed = cur.fetchall()
@@ -194,6 +195,7 @@ class Pipeline:
                     )
                     
                     # 8. Scoring
+                    result["posted_at"] = row.get("posted_at")
                     rel_score, rel_why = relevance(result, self.campaign, raw_text)
                     conf_score, conf_why = confidence(result, self.campaign, row["platform"], 1)
                     if dup_of:

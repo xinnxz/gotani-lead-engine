@@ -57,13 +57,14 @@ class FacebookExecutor:
             else:
                 if target_intent == "demand":
                     # Cari posting PEMBELI di Facebook (orang/bisnis yang butuh pasokan)
-                    search_queries.append(f'site:facebook.com/groups {clean_q} (butuh OR cari OR beli OR terima OR tampung OR order) (wa OR "08") {negatives}')
-                    search_queries.append(f'site:facebook.com {clean_q} (butuh OR dicari OR beli OR tampung) ("wa" OR "08") {negatives}')
+                    search_queries.append(f'site:facebook.com/groups "{clean_q}" (butuh OR cari OR beli OR terima OR tampung OR order) (wa OR "08" OR "628") {negatives}')
+                    search_queries.append(f'site:facebook.com "{clean_q}" (butuh OR dicari OR beli OR tampung) ("wa" OR "08" OR "628") {negatives}')
                 else:
                     # Cari posting PENJUAL/PETANI di Facebook (default, supply)
-                    search_queries.append(f'site:facebook.com/groups {clean_q} (ready OR panen OR jual OR petik OR diobral) (wa OR "08") {negatives}')
-                    search_queries.append(f'site:facebook.com/groups "petani {clean_q}" {negatives}')
-                    search_queries.append(f'site:facebook.com {clean_q} (panen OR ready OR jual) ("wa" OR "08") {negatives}')
+                    # Quote clean_q agar Google tidak mencocokkan komoditas lain (misal kelapa saat cari cabai)
+                    search_queries.append(f'site:facebook.com/groups "{clean_q}" (ready OR panen OR jual OR petik OR diobral) (wa OR "08" OR "628") {negatives}')
+                    search_queries.append(f'site:facebook.com/groups "petani {clean_q}" (wa OR "08" OR "628") {negatives}')
+                    search_queries.append(f'site:facebook.com "{clean_q}" (panen OR ready OR jual) ("wa" OR "08" OR "628") {negatives}')
 
                 # Untuk kampanye demand, tambahkan pencarian bisnis lokal otomatis
                 if target_intent == "demand":
@@ -81,7 +82,10 @@ class FacebookExecutor:
         payload = {
             "queries": "\n".join(search_queries),
             "maxPagesPerQuery": 1,
-            "resultsPerPage": max_posts
+            "resultsPerPage": max_posts,
+            "countryCode": "id",
+            "languageCode": "id",
+            "timeRange": "m",  # Past month: otomatis singkirkan post basi 1-2 tahun lalu dari Google
         }
         
         if progress_callback:
@@ -177,11 +181,15 @@ class FacebookExecutor:
                     web_count += 1
                 
                 if snippet and len(snippet.strip()) > 15:
+                    from ..normalize import parse_posted_date
+                    raw_date = res.get("date") or res.get("displayedDate") or res.get("publishedAt")
+                    detected_date = parse_posted_date(text, raw_date=str(raw_date) if raw_date else None)
                     all_posts_data.append({
                         "platform": platform_tag,
                         "query": sq_term,
                         "raw_text": text.strip(),
-                        "url": url
+                        "url": url,
+                        "posted_at": detected_date,
                     })
                 
         print(f"[SELESAI] Sukses! {len(all_posts_data)} postingan sumber berhasil diambil.")

@@ -204,3 +204,70 @@ def _parse_dt(s: str | None) -> datetime | None:
     except ValueError:
         return None
 
+
+
+def parse_posted_date(text: str | None, raw_date: str | None = None) -> str | None:
+    """Ekstrak tanggal publikasi postingan dari field Apify atau snippet Google Search.
+    
+    Mendukung format:
+    - ISO / standar: '2024-05-12T...' -> '2024-05-12'
+    - Relatif Indonesia: '2 tahun lalu', '3 bulan lalu', '2 minggu lalu', '5 hari lalu'
+    - Format tanggal Indonesia: '12 Mei 2024', '25 Okt 2023'
+    """
+    now = datetime.now()
+    if raw_date and isinstance(raw_date, str):
+        raw_clean = raw_date.strip()
+        if re.match(r"^\d{4}-\d{2}-\d{2}", raw_clean):
+            return raw_clean[:10]
+        m_iso = re.search(r"(\d{4})[/-](\d{1,2})[/-](\d{1,2})", raw_clean)
+        if m_iso:
+            try:
+                return f"{int(m_iso.group(1)):04d}-{int(m_iso.group(2)):02d}-{int(m_iso.group(3)):02d}"
+            except Exception:
+                pass
+
+    if not text:
+        return None
+
+    low = text.lower()
+
+    # 1. Cek tahun lalu: "2 tahun lalu", "2 thn lalu", "1 tahun yang lalu"
+    m_yr = re.search(r"(\d+)\s*(?:tahun|thn)\s*(?:yang\s*)?lalu", low)
+    if m_yr:
+        years = int(m_yr.group(1))
+        return (now - timedelta(days=years * 365)).date().isoformat()
+
+    # 2. Cek bulan lalu: "3 bulan lalu", "3 bln lalu"
+    m_mo = re.search(r"(\d+)\s*(?:bulan|bln)\s*(?:yang\s*)?lalu", low)
+    if m_mo:
+        months = int(m_mo.group(1))
+        return (now - timedelta(days=months * 30)).date().isoformat()
+
+    # 3. Cek minggu lalu: "2 minggu lalu", "2 mggu lalu"
+    m_wk = re.search(r"(\d+)\s*(?:minggu|mggu|pekan)\s*(?:yang\s*)?lalu", low)
+    if m_wk:
+        weeks = int(m_wk.group(1))
+        return (now - timedelta(days=weeks * 7)).date().isoformat()
+
+    # 4. Cek hari lalu: "5 hari lalu", "5 hr lalu", "kemarin"
+    m_day = re.search(r"(\d+)\s*(?:hari|hr)\s*(?:yang\s*)?lalu", low)
+    if m_day:
+        days = int(m_day.group(1))
+        return (now - timedelta(days=days)).date().isoformat()
+    if "kemarin" in low:
+        return (now - timedelta(days=1)).date().isoformat()
+
+    # 5. Cek tanggal eksplisit di snippet: "12 Mei 2024", "25 Okt 2023"
+    m_date = re.search(r"(\d{1,2})\s+([a-z]+)\s+(\d{4})", low)
+    if m_date:
+        d_val = int(m_date.group(1))
+        m_name = m_date.group(2)
+        y_val = int(m_date.group(3))
+        mo_val = INDONESIAN_MONTHS.get(m_name)
+        if mo_val and 1 <= d_val <= 31:
+            try:
+                return datetime(y_val, mo_val, d_val).date().isoformat()
+            except ValueError:
+                pass
+
+    return None

@@ -73,6 +73,31 @@ def classify_intent(text: str, spec: CampaignSpec) -> str:
 
 def extract(text: str, spec: CampaignSpec, posted_at: str | None = None) -> dict:
     """Ekstrak satu post (teks SUDAH di-masking)."""
+    parts = (text or "").split("\n", 1)
+    title = parts[0] if len(parts) > 0 else ""
+    snippet = parts[1] if len(parts) > 1 else title
+    low_snippet = snippet.lower()
+
+    # Periksa komoditas lain yang bertentangan (misal post jual kelapa saat cari cabai)
+    OTHER_CROPS = ["kelapa", "durian", "sawit", "karet", "kakao", "kopi", "singkong", "tebu", "tembakau", "jagung", "padi", "beras"]
+    target_crop = (spec.product.name or "").lower()
+    competing_crops = [c for c in OTHER_CROPS if c != target_crop]
+
+    other_crop_hit = any(re.search(rf"\b{re.escape(c)}\b", low_snippet) for c in competing_crops)
+    product_in_snippet = any(re.search(rf"\b{re.escape(t)}\b", low_snippet) for t in spec.product_terms())
+
+    # Jika isi postingan menjual komoditas lain dan tidak menyebut komoditas target
+    if other_crop_hit and not product_in_snippet:
+        detected_other = next((c for c in competing_crops if re.search(rf"\b{re.escape(c)}\b", low_snippet)), "komoditas_lain")
+        return {
+            "intent": "irrelevant",
+            "entity_name": None,
+            "product": detected_other,
+            "attributes": {},
+            "flags": ["komoditas_berbeda"],
+            "evidence": {"alasan": f"Isi postingan menjual {detected_other}, bukan {spec.product.name}"},
+        }
+
     low = (text or "").lower()
     intent = classify_intent(text, spec)
     evidence: dict[str, str] = {}
