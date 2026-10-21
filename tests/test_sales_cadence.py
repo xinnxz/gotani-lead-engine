@@ -89,3 +89,40 @@ def test_cadence_followup_cycle(test_conn):
     conv2 = db.get_conversation(test_conn, conv_id)
     assert conv2["state"] == "closed_lost"
     assert conv2["followup_count"] == 2
+
+
+def test_sales_metrics_calculation(test_conn):
+    from agent.sales_agent import calculate_sales_metrics
+    
+    # Buat percakapan 1: sent + inbound reply
+    c1 = db.create_conversation(test_conn, listing_id=1, campaign_id="cmp-1", contact_phone="08111", role="farmer", initial_state="active")
+    db.add_message(test_conn, c1, "outbound", "ai", "Halo!", delivery_status="sent")
+    db.add_message(test_conn, c1, "inbound", "lead", "Halo juga!")
+
+    # Buat percakapan 2: closed_won
+    c2 = db.create_conversation(test_conn, listing_id=1, campaign_id="cmp-1", contact_phone="08222", role="buyer", initial_state="closed_won")
+    db.add_message(test_conn, c2, "outbound", "ai", "Penawaran", delivery_status="sent")
+
+    # Buat opt-out
+    db.register_opt_out(test_conn, "08333", reason="user_stop")
+
+    metrics = calculate_sales_metrics(test_conn)
+    assert metrics["total_convs"] >= 2
+    assert metrics["total_outreach"] >= 2
+    assert metrics["replied_count"] >= 1
+    assert metrics["won_count"] >= 1
+    assert metrics["opt_out_count"] >= 1
+    assert metrics["reply_rate_pct"] > 0
+    assert metrics["conversion_rate_pct"] > 0
+
+
+def test_conversations_export_dataframe(test_conn):
+    from agent.sales_agent import build_conversations_export_dataframe
+    
+    df = build_conversations_export_dataframe(test_conn)
+    assert "Conversation_ID" in df.columns
+    assert "Nama_Kontak" in df.columns
+    assert "Komoditas" in df.columns
+    assert "Total_Pesan" in df.columns
+    assert "Pesan_Terakhir" in df.columns
+

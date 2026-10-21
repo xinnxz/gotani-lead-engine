@@ -128,3 +128,45 @@ class LLMGateway:
             raise
         self._log(purpose, tin, tout, True)
         return data
+
+    def generate_text(self, prompt: str, purpose: str, system: str | None = None, temperature: float = 0.3) -> str:
+        """Kirim prompt, minta jawaban teks bebas (cocok untuk percakapan sales), kembalikan teks bersih."""
+        if not self.available:
+            raise LLMUnavailable("GEMINI_API_KEY belum diisi")
+
+        leaks = find_pii(prompt) + find_pii(system or "")
+        if leaks:
+            raise UnmaskedDataError(f"Prompt berisi {len(leaks)} data pribadi mentah; panggilan dibatalkan")
+
+        usage = self.usage_today()
+        if usage["requests"] >= settings.llm_max_requests_per_day:
+            raise BudgetExceeded(f"Batas {settings.llm_max_requests_per_day} request/hari tercapai")
+        if usage["cost_usd"] >= settings.llm_daily_budget_usd:
+            raise BudgetExceeded(f"Budget harian ${settings.llm_daily_budget_usd:.2f} tercapai")
+
+        wait = settings.llm_min_seconds_between_calls - (time.time() - LLMGateway._last_call)
+        if wait > 0:
+            time.sleep(wait)
+        LLMGateway._last_call = time.time()
+
+        from google.genai import types
+
+        try:
+            resp = self._client_get().models.generate_content(
+                model=self.model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system,
+                    temperature=temperature,
+                ),
+            )
+        except Exception as e:
+            self._log(purpose, 0, 0, False, str(e)[:500])
+            raise
+
+        meta = getattr(resp, "usage_metadata", None)
+        tin = int(getattr(meta, "prompt_token_count", 0) or 0)
+        tout = int(getattr(meta, "candidates_token_count", 0) or 0)
+        text = (resp.text or "").strip()
+        self._log(purpose, tin, tout, True)
+        return text

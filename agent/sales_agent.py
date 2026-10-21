@@ -180,3 +180,115 @@ def summarize_conversation(
     summary = f"Interaksi terakhir ({len(messages)} pesan): '{last_msg[:80]}...'"
     db.update_conversation(conn, conversation_id, summary_text=summary)
     return summary
+
+
+def calculate_sales_metrics(conn: sqlite3.Connection) -> dict[str, Any]:
+    """Hitung metrik funnel performa outreach & konversi sales AI (PRD §7.8 / F8.10).
+
+    Metrik utama:
+    - total_convs: Jumlah total percakapan
+    - total_outreach: Percakapan yang sudah dikirim pesan keluar
+    - replied_count: Lead yang merespons (inbound)
+    - reply_rate_pct: Rasio balasan (% responded)
+    - handover_count: Jumlah eskalasi ke staf manusia
+    - handover_rate_pct: Rasio eskalasi (% handover)
+    - won_count: Jumlah transaksi berhasil (Closed Won)
+    - conversion_rate_pct: Rasio konversi deal (% closing)
+    - opt_out_count: Jumlah permintaan supresi kontak
+    - opt_out_rate_pct: Rasio penolakan (target < 5%)
+    """
+    total_convs = conn.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
+    
+    # Outreach yang sudah dikirim (bukan drafted)
+    total_outreach = conn.execute(
+        "SELECT COUNT(*) FROM conversations WHERE state NOT IN ('drafted')"
+    ).fetchone()[0]
+
+    # Percakapan yang memiliki minimal 1 pesan masuk (inbound)
+    replied_count = conn.execute(
+        """SELECT COUNT(DISTINCT conversation_id) FROM messages 
+           WHERE direction = 'inbound'"""
+    ).fetchone()[0]
+
+    handover_count = conn.execute(
+        "SELECT COUNT(*) FROM conversations WHERE state = 'handover_pending'"
+    ).fetchone()[0]
+
+    won_count = conn.execute(
+        "SELECT COUNT(*) FROM conversations WHERE state = 'closed_won'"
+    ).fetchone()[0]
+
+    lost_count = conn.execute(
+        "SELECT COUNT(*) FROM conversations WHERE state = 'closed_lost'"
+    ).fetchone()[0]
+
+    opt_out_count = conn.execute(
+        "SELECT COUNT(*) FROM opt_outs"
+    ).fetchone()[0]
+
+    # Hitung rasio persentase
+    reply_rate = round((replied_count / total_outreach) * 100.0, 1) if total_outreach > 0 else 0.0
+    handover_rate = round((handover_count / total_outreach) * 100.0, 1) if total_outreach > 0 else 0.0
+    conversion_rate = round((won_count / total_outreach) * 100.0, 1) if total_outreach > 0 else 0.0
+    opt_out_rate = round((opt_out_count / total_outreach) * 100.0, 1) if total_outreach > 0 else 0.0
+
+    return {
+        "total_convs": total_convs,
+        "total_outreach": total_outreach,
+        "replied_count": replied_count,
+        "reply_rate_pct": reply_rate,
+        "handover_count": handover_count,
+        "handover_rate_pct": handover_rate,
+        "won_count": won_count,
+        "conversion_rate_pct": conversion_rate,
+        "lost_count": lost_count,
+        "opt_out_count": opt_out_count,
+        "opt_out_rate_pct": opt_out_rate,
+    }
+
+
+def build_conversations_export_dataframe(conn: sqlite3.Connection):
+    """Format seluruh data percakapan CRM ke DataFrame terstruktur untuk ekspor CSV/Excel (PRD §7.5)."""
+    import pandas as pd
+
+    query = """
+        SELECT 
+            c.id AS Conversation_ID,
+            c.match_id AS Match_ID,
+            c.role AS Peran,
+            c.contact_name AS Nama_Kontak,
+            c.contact_phone AS Nomor_Telepon,
+            l.product AS Komoditas,
+            l.volume_kg AS Volume_Kg,
+            l.price_per_kg AS Harga_Kg,
+            l.kabupaten AS Lokasi,
+            c.state AS Status_Sesi,
+            c.followup_count AS Jumlah_Followup,
+            c.followup_due_at AS Jadwal_Followup,
+            c.assigned_sales AS Sales_Penanggungjawab,
+            c.summary_text AS Ringkasan_Konteks,
+            c.created_at AS Waktu_Dibuat,
+            c.updated_at AS Waktu_Diperbarui
+        FROM conversations c
+        LEFT JOIN listings l ON c.listing_id = l.id
+        ORDER BY c.updated_at DESC
+    """
+    df = pd.read_sql_query(query, conn)
+
+    # Tambahkan kolom jumlah pesan & pesan terakhir
+    msg_counts = []
+    last_messages = []
+    for c_id in df["Conversation_ID"]:
+        msgs = db.get_messages(conn, int(c_id))
+        msg_counts.append(len(msgs))
+        if msgs:
+            last = msgs[-1]
+            sender = "GoTani" if last["direction"] == "outbound" else "Lead"
+            last_messages.append(f"[{sender}] {last['content'][:100]}")
+        else:
+            last_messages.append("-")
+
+    df["Total_Pesan"] = msg_counts
+    df["Pesan_Terakhir"] = last_messages
+    return df
+

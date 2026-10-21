@@ -30,7 +30,13 @@ from agent.outreach import (
 )
 from agent.compliance import is_do_not_contact, register_opt_out_contact, is_within_operating_hours
 from agent.handover import evaluate_inbound_message
-from agent.sales_agent import generate_initial_outreach, generate_conversational_reply, summarize_conversation
+from agent.sales_agent import (
+    generate_initial_outreach,
+    generate_conversational_reply,
+    summarize_conversation,
+    calculate_sales_metrics,
+    build_conversations_export_dataframe,
+)
 from agent.cadence import get_due_followups, generate_followup_message, advance_followup, calculate_due_date
 
 # ================= PAGE CONFIG =================
@@ -1093,9 +1099,28 @@ with tab2:
                             farmer_wa_url = format_wa_url(it.get('farmer_phone') or it.get('farmer_wa'), farmer_draft)
                             if farmer_wa_url:
                                 st.markdown(f"[Hubungi WhatsApp]({farmer_wa_url})")
-                                with st.popover("Draf Pesan"):
+                                with st.popover("Draf Pesan & CRM"):
                                     st.caption("Draf otomatis yang terisi di WhatsApp:")
                                     st.code(farmer_draft, language="text")
+                                    if st.button("Daftarkan ke Sales CRM", key=f"btn_reg_crm_f_{m['match_id']}_{it['supply_id']}"):
+                                        existing_c = db.get_conversation_by_listing(conn, it['supply_id'])
+                                        if not existing_c:
+                                            new_c_id = db.create_conversation(
+                                                conn,
+                                                listing_id=it['supply_id'],
+                                                campaign_id="cmp-sales-match",
+                                                contact_phone=it.get('farmer_phone') or it.get('farmer_wa'),
+                                                role="farmer",
+                                                match_id=m['match_id'],
+                                                contact_name=it.get('farmer_name'),
+                                                initial_state="drafted",
+                                                followup_due_at=calculate_due_date(days_ahead=3),
+                                            )
+                                            db.add_message(conn, new_c_id, "outbound", "ai", farmer_draft, delivery_status="draft")
+                                            st.session_state["notify_success"] = f"Petani '{it.get('farmer_name')}' berhasil didaftarkan ke Sales CRM #{new_c_id}!"
+                                        else:
+                                            st.session_state["notify_info"] = f"Petani '{it.get('farmer_name')}' sudah ada di Sales CRM #{existing_c['id']}."
+                                        st.rerun()
                             elif it.get("farmer_phone"):
                                 st.caption(f"Telp: {it['farmer_phone']}")
 
@@ -1136,9 +1161,28 @@ with tab2:
                     buyer_wa_url = format_wa_url(m.get("buyer_phone") or m.get("buyer_wa"), buyer_draft)
                     if buyer_wa_url:
                         st.markdown(f"[Hubungi Pembeli via WhatsApp]({buyer_wa_url})")
-                        with st.popover("Draf Penawaran"):
+                        with st.popover("Draf Penawaran & CRM"):
                             st.caption("Draf penawaran otomatis untuk pembeli:")
                             st.code(buyer_draft, language="text")
+                            if st.button("Daftarkan Pembeli ke CRM", key=f"btn_reg_crm_b_{m['match_id']}"):
+                                existing_cb = db.get_conversation_by_listing(conn, m['demand_id'])
+                                if not existing_cb:
+                                    new_cb_id = db.create_conversation(
+                                        conn,
+                                        listing_id=m['demand_id'],
+                                        campaign_id="cmp-sales-buyer",
+                                        contact_phone=m.get('buyer_phone') or m.get('buyer_wa'),
+                                        role="buyer",
+                                        match_id=m['match_id'],
+                                        contact_name=m['buyer_name'],
+                                        initial_state="drafted",
+                                        followup_due_at=calculate_due_date(days_ahead=3),
+                                    )
+                                    db.add_message(conn, new_cb_id, "outbound", "ai", buyer_draft, delivery_status="draft")
+                                    st.session_state["notify_success"] = f"Pembeli '{m['buyer_name']}' berhasil didaftarkan ke Sales CRM #{new_cb_id}!"
+                                else:
+                                    st.session_state["notify_info"] = f"Pembeli '{m['buyer_name']}' sudah ada di Sales CRM #{existing_cb['id']}."
+                                st.rerun()
                     else:
                         st.caption("Kontak pembeli belum tersedia")
 
@@ -1172,13 +1216,33 @@ with tab3:
     st.caption("Pusat komando outreach terpersonalisasi, cadence follow-up otomatis, smart handover eskalasi, dan kepatuhan UU PDP (PRD §7.8)")
 
     # 1. Action bar & Metrics
-    crm_c1, crm_c2, crm_c3, crm_c4 = st.columns(4)
-    crm_c1.metric("Total Percakapan", total_convs, help="Jumlah seluruh sesi percakapan prospek terdaftar.")
-    crm_c2.metric("Butuh Handover", total_handovers, help="Percakapan yang memerlukan penanganan langsung staf sales.")
-    crm_c3.metric("Deals Selesai (Won)", total_won, help="Transaksi yang berhasil disepakati.")
+    s_metrics = calculate_sales_metrics(conn)
     
-    total_dnc = conn.execute("SELECT COUNT(*) FROM opt_outs").fetchone()[0]
-    crm_c4.metric("Supresi Opt-Out", total_dnc, help="Nomor telepon yang meminta berhenti dihubungi (UU PDP).")
+    m_top1, m_top2 = st.columns([3, 1])
+    with m_top1:
+        crm_c1, crm_c2, crm_c3, crm_c4 = st.columns(4)
+        crm_c1.metric("Total Sesi CRM", s_metrics["total_convs"], help="Jumlah seluruh sesi percakapan prospek.")
+        crm_c2.metric("Outreach Aktif", s_metrics["total_outreach"], help="Pesan yang telah dikirimkan ke lead.")
+        crm_c3.metric("Butuh Handover", s_metrics["handover_count"], help="Percakapan yang memerlukan eskalasi ke staf manusia.")
+        crm_c4.metric("Deals Won", s_metrics["won_count"], help="Transaksi yang berhasil disepakati.")
+    with m_top2:
+        df_export_crm = build_conversations_export_dataframe(conn)
+        csv_crm = df_export_crm.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Export Laporan CRM (CSV)",
+            csv_crm,
+            file_name=f"sales_crm_report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            mime="text/csv",
+            help="Unduh rekapan komprehensif performa sales outreach dan riwayat interaksi."
+        )
+
+    # Funnel Konversi Sales (PRD §7.8 / F8.10)
+    with st.expander("Funnel Konversi & Metrik Kinerja Sales AI (PRD F8.10)", expanded=False):
+        f_m1, f_m2, f_m3, f_m4 = st.columns(4)
+        f_m1.metric("Reply Rate", f"{s_metrics['reply_rate_pct']}%", help="Persentase lead yang membalas pesan outreach.")
+        f_m2.metric("Handover Rate", f"{s_metrics['handover_rate_pct']}%", help="Persentase percakapan yang membutuhkan bantuan staf manusia.")
+        f_m3.metric("Conversion (Win) Rate", f"{s_metrics['conversion_rate_pct']}%", help="Persentase kesepakatan transaksi dari total outreach.")
+        f_m4.metric("Opt-Out (DNC) Rate", f"{s_metrics['opt_out_rate_pct']}%", help="Persentase kontak yang menolak (Target: < 5%).")
 
     # 2. Check Cadence Follow-Up Due
     due_followups = get_due_followups(conn)
