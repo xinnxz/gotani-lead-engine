@@ -27,6 +27,7 @@ from agent.outreach import (
     format_wa_url,
     draft_farmer_outreach_for_match,
     draft_farmer_outreach_for_lead,
+    draft_buyer_outreach_for_lead,
     draft_buyer_outreach_for_match,
     build_matches_export_dataframe,
 )
@@ -1058,13 +1059,30 @@ with tab1:
                 except (ValueError, TypeError):
                     price_val = None
 
-            msg = draft_farmer_outreach_for_lead(
-                farmer_name=name_val,
-                commodity=prod_val,
-                farmer_location=loc_val,
-                volume_kg=vol_val,
-                price_per_kg=price_val,
-            )
+            # Pilih template outreach berdasarkan kategori lead
+            intent_val = row.get("Intent", "")
+            platform_val = row.get("Platform", "")
+            
+            if intent_val == "demand" or platform_val == "google_maps":
+                # Data pembeli (toko/distributor dari Google Maps)
+                attrs = db.loads(row.get("Atribut", "{}"), default={})
+                gmeta = attrs.get("_gmaps_meta", {}) if isinstance(attrs, dict) else {}
+                msg = draft_buyer_outreach_for_lead(
+                    buyer_name=name_val,
+                    commodity=prod_val,
+                    buyer_location=loc_val,
+                    buyer_category=gmeta.get("category"),
+                    rating=gmeta.get("rating"),
+                )
+            else:
+                # Data petani/penjual (dari Facebook/web)
+                msg = draft_farmer_outreach_for_lead(
+                    farmer_name=name_val,
+                    commodity=prod_val,
+                    farmer_location=loc_val,
+                    volume_kg=vol_val,
+                    price_per_kg=price_val,
+                )
             return format_wa_url(phone_str, msg)
         
         df_leads["Chat_WA"] = df_leads.apply(make_lead_wa_link, axis=1)

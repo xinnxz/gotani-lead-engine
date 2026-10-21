@@ -119,20 +119,30 @@ class FacebookExecutor:
             else:
                 if target_intent == "demand":
                     # Cari posting PEMBELI di Facebook (orang/bisnis yang butuh pasokan)
-                    # 1. Kueri dengan nomor kontak langsung
-                    search_queries.append(f'site:facebook.com/groups "{clean_q}" (butuh OR cari OR beli OR terima OR tampung OR order) (wa OR "08" OR "628") {negatives}')
-                    # 2. Kueri kebutuhan organik tanpa paksaan nomor kontak
-                    search_queries.append(f'site:facebook.com/groups "{clean_q}" (butuh pasokan OR cari supplier OR siap tampung) {negatives}')
-                    # 3. Kueri profil pembeli publik
-                    search_queries.append(f'site:facebook.com "{clean_q}" (butuh OR dicari OR beli OR tampung) {negatives}')
+                    is_short = len(clean_q.split()) == 1 and len(clean_q) <= 5
+                    if is_short:
+                        search_queries.append(f'site:facebook.com/groups "butuh {clean_q}" (wa OR "08" OR "628") {negatives}')
+                        search_queries.append(f'site:facebook.com/groups "cari {clean_q}" (supplier OR pasokan OR ton) {negatives}')
+                        search_queries.append(f'site:facebook.com "beli {clean_q}" (butuh OR tampung OR order) {negatives}')
+                    else:
+                        search_queries.append(f'site:facebook.com/groups "{clean_q}" (butuh OR cari OR beli OR terima OR tampung OR order) (wa OR "08" OR "628") {negatives}')
+                        search_queries.append(f'site:facebook.com/groups "{clean_q}" (butuh pasokan OR cari supplier OR siap tampung) {negatives}')
+                        search_queries.append(f'site:facebook.com "{clean_q}" (butuh OR dicari OR beli OR tampung) {negatives}')
                 else:
                     # Cari posting PENJUAL/PETANI di Facebook (default, supply)
-                    # 1. Kueri dengan kontak langsung (WA/HP)
-                    search_queries.append(f'site:facebook.com/groups "{clean_q}" (ready OR panen OR jual OR petik OR diobral) (wa OR "08" OR "628") {negatives}')
-                    # 2. Kueri panen organik alami di grup petani (menjaring post faktual tanpa paksaan no HP)
-                    search_queries.append(f'site:facebook.com/groups "{clean_q}" (panen raya OR siap petik OR ready di kebun OR panen segar) {negatives}')
-                    # 3. Kueri petani umum
-                    search_queries.append(f'site:facebook.com/groups "petani {clean_q}" (panen OR jual OR stok) {negatives}')
+                    # Untuk komoditas pendek (misal "kol"), tambahkan konteks agar Google
+                    # mengembalikan POSTINGAN individual, bukan halaman grup
+                    is_short = len(clean_q.split()) == 1 and len(clean_q) <= 5
+                    # Variasi query kontekstual (prioritas: post dengan kontak)
+                    if is_short:
+                        # Komoditas pendek: gunakan frasa lengkap agar lebih spesifik
+                        search_queries.append(f'site:facebook.com/groups "jual {clean_q}" (ready OR panen OR segar) (wa OR "08" OR "628") {negatives}')
+                        search_queries.append(f'site:facebook.com/groups "panen {clean_q}" (ton OR kwintal OR kg OR kuintal) {negatives}')
+                        search_queries.append(f'site:facebook.com/groups "petani {clean_q}" (jual OR ready OR stok) {negatives}')
+                    else:
+                        search_queries.append(f'site:facebook.com/groups "{clean_q}" (ready OR panen OR jual OR petik) (wa OR "08" OR "628") {negatives}')
+                        search_queries.append(f'site:facebook.com/groups "{clean_q}" (panen raya OR siap petik OR ready di kebun OR panen segar) {negatives}')
+                        search_queries.append(f'site:facebook.com/groups "petani {clean_q}" (panen OR jual OR stok) {negatives}')
 
                 # Untuk kampanye demand, tambahkan pencarian bisnis lokal otomatis
                 if target_intent == "demand":
@@ -256,6 +266,13 @@ class FacebookExecutor:
                     platform_tag = "web_b2b"
                     web_count += 1
                 
+                # Skip halaman grup Facebook (bukan postingan individual)
+                # Pattern: facebook.com/groups/XXXXX/ tanpa /posts/ atau /permalink/
+                import re as _re_url
+                if _re_url.match(r'https?://[^/]*facebook\.com/groups/[^/]+/?$', url):
+                    logger.info(f"Mengabaikan halaman grup (bukan postingan): {url}")
+                    continue
+
                 if snippet and len(snippet.strip()) > 15:
                     from ..normalize import parse_posted_date
                     import re

@@ -3,6 +3,7 @@ from agent.outreach import (
     format_wa_url,
     draft_farmer_outreach_for_match,
     draft_farmer_outreach_for_lead,
+    draft_buyer_outreach_for_lead,
     draft_buyer_outreach_for_match,
 )
 
@@ -151,3 +152,58 @@ def test_draft_buyer_outreach_for_match_none_volume():
     assert "UD Berkah" in msg
     assert "Jahe" in msg
     assert "GoTani" in msg
+
+def test_draft_buyer_outreach_for_lead_basic():
+    """Test template outreach untuk pembeli dari Google Maps."""
+    msg = draft_buyer_outreach_for_lead(
+        buyer_name="Toko Buah Segar Malang",
+        commodity="melon",
+        buyer_location="Kota Malang",
+        buyer_category="Toko Buah dan Sayuran",
+        rating=4.5,
+    )
+    assert "Toko Buah Segar Malang" in msg
+    assert "Melon" in msg or "melon" in msg
+    assert "Malang" in msg
+    assert "GoTani" in msg
+    assert "mohon abaikan" in msg.lower()
+    # Harus template PEMBELI, bukan petani
+    assert "pasokan" in msg.lower()
+    assert "penawaran harga" in msg.lower()
+
+
+def test_draft_buyer_outreach_for_lead_with_category():
+    """Kategori Google Maps harus muncul di pesan."""
+    msg = draft_buyer_outreach_for_lead(
+        buyer_name="PT Godong Seger Abadi",
+        commodity="semangka",
+        buyer_location="Surabaya",
+        buyer_category="Toko Buah dan Sayuran",
+    )
+    assert "Toko Buah dan Sayuran" in msg
+
+
+def test_draft_buyer_outreach_for_lead_no_name():
+    """Tanpa nama, harus fallback ke sapaan generik."""
+    msg = draft_buyer_outreach_for_lead(
+        buyer_name=None,
+        commodity="cabai",
+        buyer_location="Jakarta",
+    )
+    assert "Bapak/Ibu" in msg
+    assert "Cabai" in msg or "cabai" in msg
+    assert "GoTani" in msg
+
+
+def test_draft_buyer_outreach_for_lead_no_location():
+    """Tanpa lokasi, pesan tetap valid."""
+    msg = draft_buyer_outreach_for_lead(
+        buyer_name="Toko ABC",
+        commodity="jeruk",
+    )
+    assert "Toko ABC" in msg
+    assert "Jeruk" in msg or "jeruk" in msg
+    assert "GoTani" in msg
+    # Tidak boleh ada "di None" atau "di -"
+    assert "di None" not in msg
+    assert "di -" not in msg

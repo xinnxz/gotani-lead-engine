@@ -1,25 +1,25 @@
-"""Planner (PRD F2.1a–b): Campaign Spec → daftar wilayah & query pencarian, tanpa seed list."""
+"""Planner (PRD F2.1a-b): Campaign Spec -> daftar query pencarian teroptimasi."""
 from __future__ import annotations
 
 from . import wilayah
 from .campaign import CampaignSpec
 
-# Pola query transaksi spesifik (Fokus transaksi nyata, bukan sekadar obrolan)
+# Pola query pencarian Facebook (fokus postingan transaksional)
 GROUP_PATTERNS_SUPPLY = [
     "jual {p} {r}",
     "panen {p} {r}",
     "ready {p} {r}",
-    "petani {p} {r}"
+    "petani {p} {r}",
 ]
 
 GROUP_PATTERNS_DEMAND = [
     "cari {p} {r}",
     "butuh {p} {r}",
     "tampung {p} {r}",
-    "beli {p} {r}"
+    "beli {p} {r}",
 ]
 
-# Pola pencarian Google Maps / Bisnis Lokal untuk calon pembeli B2B (PRD §7.2 F2.1d)
+# Pola Google Maps / Bisnis Lokal
 PLACES_PATTERNS = [
     "toko buah {r}",
     "toko sayur {r}",
@@ -28,7 +28,7 @@ PLACES_PATTERNS = [
     "grosir buah {r}",
 ]
 
-# Pola pencarian Direktori Web B2B & Kemitraan Agribisnis (PRD §7.2 F2.2)
+# Pola Web B2B
 WEB_B2B_PATTERNS = [
     "supplier {p} {r}",
     "distributor {p} {r}",
@@ -38,7 +38,7 @@ WEB_B2B_PATTERNS = [
 PROVINCE_PATTERNS = [
     "jual {p} {prov}",
     "panen {p} {prov}",
-    "komunitas {p} {prov}"
+    "komunitas {p} {prov}",
 ]
 
 INTENT_WORDS = {
@@ -46,16 +46,11 @@ INTENT_WORDS = {
     "demand": ["cari", "butuh", "terima", "beli", "tampung"],
 }
 
-# Kata kunci negatif untuk menyaring sampah dari Google Search
 NEGATIVE_KEYWORDS = "-bibit -benih -pupuk -obat -loker -lowongan -resep -jus -olahan -jasa -mesin"
 
 
 def expand_regions(spec: CampaignSpec) -> list[dict]:
-    """Provinsi dipecah menjadi kabupaten/kota. Urutan: prioritas operator → sisanya.
-
-    Catatan: PRD F2.1a meminta prioritas sentra produksi dicari otomatis dari data BPS/dinas.
-    Itu dijadwalkan di M3; sementara ini operator bisa mengisi `location.priority`.
-    """
+    """Provinsi dipecah menjadi kabupaten/kota. Urutan: prioritas operator -> sisanya."""
     regions: list[dict] = []
     seen: set[str] = set()
     excluded = {r["kode"] for x in spec.location.exclude for r in wilayah.find_regions_in_text(x)}
@@ -81,7 +76,14 @@ def expand_regions(spec: CampaignSpec) -> list[dict]:
 
 
 def build_group_queries(spec: CampaignSpec, max_queries: int | None = None) -> list[dict]:
-    """Query untuk pencarian grup FB. Nama kota & kabupaten yang sama (Kediri) cukup sekali."""
+    """Bangun query pencarian teroptimasi. Fewer queries, higher quality.
+    
+    Urutan prioritas:
+    1. Query level PROVINSI (Google Search paling efektif dengan nama provinsi)
+    2. Query SINONIM level provinsi (misal "kol" selain "kubis")
+    3. Query level KABUPATEN (max 5 kabupaten teratas, hemat kuota)
+    4. Fallback nasional jika lokasi kosong
+    """
     p = (spec.product.name or "").lower()
     if not p:
         return []
@@ -95,48 +97,56 @@ def build_group_queries(spec: CampaignSpec, max_queries: int | None = None) -> l
             seen.add(q)
             queries.append({"query": q, "region": region, "platform": platform, "kind": kind})
 
-    for prov in spec.provinces():
+    provinces = spec.provinces()
+
+    # === PRIORITAS 1: Query level provinsi (PALING EFEKTIF) ===
+    for prov in provinces:
+        # Pola provinsi standar
         for pat in PROVINCE_PATTERNS:
             add(pat.format(p=p, prov=prov), prov, "facebook", "group_search")
-            
-    regions = expand_regions(spec)
-    for r in regions:
-        # 1. Grup Facebook (Petani / Penjual / Pembeli medsos)
+        # Pola supply/demand di level provinsi
         for pat in patterns:
+            add(pat.format(p=p, r=prov), prov, "facebook", "group_search")
+
+    # === PRIORITAS 2: Sinonim di level provinsi ===
+    for syn in spec.product.synonyms:
+        if syn.lower() != p:
+            for prov in provinces:
+                # Hanya 2 pola terpenting per sinonim
+                add(f"jual {syn} {prov}", prov)
+                add(f"panen {syn} {prov}", prov)
+            if not provinces:
+                add(f"jual {syn}", "Indonesia (Nasional)")
+
+    # === PRIORITAS 3: Query kabupaten (DIBATASI max 5) ===
+    regions = expand_regions(spec)
+    top_regions = regions[:5]
+    for r in top_regions:
+        # Facebook: hanya 2 pola terpenting
+        for pat in patterns[:2]:
             add(pat.format(p=p, r=r["nama"]), wilayah.label(r), "facebook", "group_search")
+        # Google Maps & B2B: hanya untuk top 3
+        if r in regions[:3]:
+            for pat in PLACES_PATTERNS[:3]:
+                add(pat.format(r=r["nama"]), wilayah.label(r), "google_maps", "places_search")
+            for pat in WEB_B2B_PATTERNS[:2]:
+                add(pat.format(p=p, r=r["nama"]), wilayah.label(r), "web_b2b", "web_search")
 
-        # 2. Google Maps / Bisnis Lokal (Toko Buah, Toko Sayur, Distributor, Pasar Induk)
-        for pat in PLACES_PATTERNS:
-            add(pat.format(r=r["nama"]), wilayah.label(r), "google_maps", "places_search")
-
-        # 3. Web B2B & Kemitraan Agribisnis
-        for pat in WEB_B2B_PATTERNS:
-            add(pat.format(p=p, r=r["nama"]), wilayah.label(r), "web_b2b", "web_search")
-            
-    # FALLBACK 1: Jika lokasi tidak ada di database wilayah.json (misal luar Jawa Timur),
-    # gunakan teks lokasi mentah yang diinputkan dari spec.location.include
-    if not regions and not spec.provinces() and spec.location.include:
+    # FALLBACK 1: Lokasi tidak ada di database wilayah
+    if not regions and not provinces and spec.location.include:
         for loc in spec.location.include:
             for pat in patterns:
                 add(pat.format(p=p, r=loc), loc, "facebook", "group_search")
-            for pat in PLACES_PATTERNS:
+            for pat in PLACES_PATTERNS[:3]:
                 add(pat.format(r=loc), loc, "google_maps", "places_search")
 
-
-    # FALLBACK 2: Jika user SAMA SEKALI tidak menyebutkan lokasi (lokasi kosong),
-    # buat query skala nasional agar pipeline tidak macet!
+    # FALLBACK 2: Tidak ada lokasi sama sekali
     if not queries:
         for w in INTENT_WORDS.get(spec.target_intent, ["jual", "panen"]):
             add(f"{w} {p}", "Indonesia (Nasional)")
         add(f"petani {p}", "Indonesia (Nasional)")
         add(f"komunitas {p}", "Indonesia (Nasional)")
 
-    for syn in spec.product.synonyms:
-        if syn.lower() != p:
-            for prov in spec.provinces():
-                add(f"{syn} {prov}", prov)
-            if not spec.provinces():
-                add(f"jual {syn}", "Indonesia (Nasional)")
     return queries[:max_queries] if max_queries else queries
 
 

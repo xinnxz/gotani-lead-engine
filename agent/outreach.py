@@ -121,6 +121,44 @@ def draft_farmer_outreach_for_lead(
     return "\n".join(lines)
 
 
+
+
+def draft_buyer_outreach_for_lead(
+    buyer_name: Any,
+    commodity: str,
+    buyer_location: Any = None,
+    buyer_category: str | None = None,
+    rating: float | None = None,
+) -> str:
+    """Draf pesan outreach pertama ke pembeli/toko dari data Google Maps (Tab 1).
+
+    Berbeda dari draft_farmer_outreach_for_lead:
+    - Target adalah PEMBELI (toko buah, distributor, grosir)
+    - Tujuan: menawarkan pasokan komoditas dari jaringan petani GoTani
+    - Nada profesional B2B (bukan gaya komunitas)
+    """
+    b_name = _clean_str(buyer_name)
+    name_salutation = f"tim {b_name}" if b_name and b_name.lower() not in {"toko", "distributor", "-"} else "Bapak/Ibu"
+    loc_b = _clean_str(buyer_location)
+    loc_str = f" di {loc_b}" if loc_b and loc_b != "-" else ""
+    cat = _clean_str(buyer_category)
+    cat_str = f" ({cat})" if cat else ""
+
+    lines = [
+        f"Halo {name_salutation}{cat_str}, salam kenal dari GoTani.",
+        "",
+        f"GoTani adalah platform penghubung hasil panen petani langsung ke jaringan distributor dan pasar. "
+        f"Kami memiliki jaringan petani mitra{loc_str} yang menyediakan pasokan {commodity.title()} "
+        "berkualitas dengan harga kompetitif langsung dari sumber.",
+        "",
+        f"Apakah saat ini {name_salutation} membutuhkan pasokan rutin {commodity.lower()}? "
+        "Kami siap mengirimkan penawaran harga dan spesifikasi mutu sesuai kebutuhan Anda.",
+        "",
+        "Terima kasih atas waktunya. (Mohon abaikan pesan ini jika tidak berkenan dihubungi).",
+    ]
+    return "\n".join(lines)
+
+
 def draft_buyer_outreach_for_match(
     buyer_name: Any,
     commodity: str,

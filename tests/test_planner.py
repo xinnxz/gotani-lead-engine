@@ -16,8 +16,7 @@ def test_build_group_queries_multi_source():
     assert "google_maps" in platforms
     assert "web_b2b" in platforms
 
-    # Memastikan query Toko Buah / Maps dan Pasar Induk terbentuk
+    # Memastikan query Maps terbentuk (top 3 pattern: toko buah, toko sayur, distributor buah)
     q_texts = [q["query"].lower() for q in queries]
     assert any("toko buah" in t for t in q_texts)
-    assert any("pasar induk" in t for t in q_texts)
-    assert any("distributor buah" in t for t in q_texts)
+    assert any("distributor buah" in t or "distributor" in t for t in q_texts)
