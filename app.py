@@ -900,13 +900,15 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 
 # ================= TAB 1: VERIFIED LEADS =================
 with tab1:
-    fc1, fc2, fc3 = st.columns([1.5, 1.5, 1.2])
+    fc1, fc2, fc3, fc4 = st.columns([1.5, 1.5, 1, 1])
     with fc1:
         min_rel = st.slider("Batas Minimum Relevansi", 0, 100, 65, 5)
     with fc2:
         min_conf = st.slider("Batas Minimum Confidence", 0, 100, 50, 5)
     with fc3:
         status_filter = st.selectbox("Status Verifikasi", ["Semua", "pending", "approved", "rejected"], index=0)
+    with fc4:
+        platform_filter = st.selectbox("Sumber Data", ["Semua", "Google Maps", "Facebook"], index=0)
     st.caption("Menampilkan prospek terverifikasi berkualitas tinggi (Relevansi ≥ 65%, Confidence ≥ 50% sesuai PRD §7.5). Geser slider ke 0 jika ingin meninjau seluruh data mentah.")
 
     query_str = """
@@ -935,16 +937,21 @@ with tab1:
         WHERE l.relevance >= ? AND l.confidence >= ? AND l.duplicate_of IS NULL
           AND (r.posted_at IS NULL OR r.posted_at >= date('now', '-35 days'))
     """
-    # Dynamic: tambahkan filter tahun stale (sebelum tahun ini)
+    # Dynamic: filter tahun stale HANYA untuk data Facebook (bukan Google Maps)
+    # Alasan: alamat bisnis Google Maps bisa mengandung angka tahun (misal "Jl. Raya 2020")
     _cur_yr_app = datetime.now().year
     for _sy in range(2018, _cur_yr_app):
-        query_str += f" AND r.raw_text NOT LIKE '%{_sy}%'"
+        query_str += f" AND (r.platform = 'google_maps' OR r.raw_text NOT LIKE '%{_sy}%')"
     query_str += """
     """
     params = [min_rel, min_conf]
     if status_filter != "Semua":
         query_str += " AND l.review_status = ?"
         params.append(status_filter)
+    if platform_filter == "Google Maps":
+        query_str += " AND r.platform = 'google_maps'"
+    elif platform_filter == "Facebook":
+        query_str += " AND r.platform = 'facebook'"
     query_str += " ORDER BY l.relevance DESC, l.confidence DESC"
 
     df_leads = pd.read_sql_query(query_str, conn, params=tuple(params))
