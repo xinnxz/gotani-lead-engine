@@ -102,7 +102,7 @@ class GoogleMapsExecutor:
     """
 
     # Actor Apify untuk Google Maps
-    ACTOR_ID = "compass/crawler-google-places"
+    ACTOR_ID = "compass~crawler-google-places"  # Tilde format untuk Apify REST API
 
     def __init__(self):
         key = os.getenv("APIFY_API_KEY")
@@ -240,13 +240,15 @@ class GoogleMapsExecutor:
             phone = str(item.get("phone") or item.get("phoneUnformatted") or "").strip()
             address = str(item.get("address") or "").strip()
             city = str(item.get("city") or "").strip()
-            website = str(item.get("website") or item.get("url") or "").strip()
+            website = str(item.get("website") or "").strip()
             rating = item.get("totalScore") or item.get("rating")
             reviews = item.get("reviewsCount") or item.get("reviews") or 0
             category = str(item.get("categoryName") or item.get("category") or "").strip()
-            maps_url = str(item.get("url") or item.get("placeUrl") or "").strip()
+            maps_url = str(item.get("url") or "").strip()
             postal = str(item.get("postalCode") or "").strip()
-            state = str(item.get("state") or item.get("province") or "").strip()
+            state = str(item.get("state") or "").strip()
+            street = str(item.get("street") or "").strip()
+            neighborhood = str(item.get("neighborhood") or "").strip()
 
             # Skip jika tidak ada nama bisnis
             if not title or len(title) < 3:
@@ -293,6 +295,8 @@ class GoogleMapsExecutor:
                     "city": city,
                     "state": state,
                     "postal_code": postal,
+                    "street": street,
+                    "neighborhood": neighborhood,
                     "website": website,
                     "rating": float(rating) if rating else None,
                     "reviews_count": int(reviews) if reviews else 0,
