@@ -558,6 +558,55 @@ with st.sidebar:
         "Sulawesi Selatan", "Sulawesi Utara", "Papua",
     ]
 
+    # ── Quick Start Presets ──
+    if "form_commodity" not in st.session_state:
+        st.session_state["form_commodity"] = "Melon"
+        st.session_state["form_goal"] = "Cari Petani (Supply)"
+        st.session_state["form_provinces"] = ["Jawa Timur"]
+        st.session_state["form_volume"] = 500
+        st.session_state["form_varieties"] = []
+
+    st.markdown("<div style='font-size:11px; font-weight:500; color:#64748b; margin-bottom:4px;'>Quick Start</div>", unsafe_allow_html=True)
+    qs1, qs2, qs3, qs4 = st.columns(4)
+    with qs1:
+        if st.button("🍈 Melon Jatim", use_container_width=True):
+            st.session_state["form_commodity"] = "Melon"
+            st.session_state["form_goal"] = "Cari Petani (Supply)"
+            st.session_state["form_provinces"] = ["Jawa Timur"]
+            st.session_state["form_volume"] = 500
+            st.session_state["form_varieties"] = []
+            st.rerun()
+    with qs2:
+        if st.button("🌶️ Cabai Rawit", use_container_width=True):
+            st.session_state["form_commodity"] = "Cabai"
+            st.session_state["form_goal"] = "Cari Petani (Supply)"
+            st.session_state["form_provinces"] = ["Jawa Timur"]
+            st.session_state["form_volume"] = 200
+            st.session_state["form_varieties"] = []
+            st.rerun()
+    with qs3:
+        if st.button("🫚 Jahe Rempah", use_container_width=True):
+            st.session_state["form_commodity"] = "Jahe"
+            st.session_state["form_goal"] = "Cari Petani (Supply)"
+            st.session_state["form_provinces"] = ["Jawa Timur"]
+            st.session_state["form_volume"] = 1000
+            st.session_state["form_varieties"] = []
+            st.rerun()
+    with qs4:
+        if st.button("🛒 Cari Pembeli", use_container_width=True):
+            st.session_state["form_commodity"] = "Melon"
+            st.session_state["form_goal"] = "Cari Pembeli (Demand)"
+            st.session_state["form_provinces"] = ["Jawa Timur"]
+            st.session_state["form_volume"] = 1000
+            st.session_state["form_varieties"] = []
+            st.rerun()
+
+    # Resolve defaults from session state
+    _def_commodity = st.session_state.get("form_commodity", "Melon")
+    _def_goal = st.session_state.get("form_goal", "Cari Petani (Supply)")
+    _def_provinces = st.session_state.get("form_provinces", ["Jawa Timur"])
+    _def_volume = st.session_state.get("form_volume", 500)
+
     with st.form("campaign_form", clear_on_submit=False):
         st.markdown("<div style='font-size:13px; font-weight:600; color:#16a34a; margin-bottom:6px;'>Konfigurasi Kampanye</div>", unsafe_allow_html=True)
 
@@ -567,13 +616,15 @@ with st.sidebar:
             selected_commodity = st.selectbox(
                 "Komoditas",
                 options=commodity_display,
-                index=commodity_display.index("Melon") if "Melon" in commodity_display else 0,
+                index=commodity_display.index(_def_commodity) if _def_commodity in commodity_display else 0,
                 help="Pilih komoditas utama yang ingin dicari."
             )
         with fc_r1c2:
+            _goal_options = ["Cari Petani (Supply)", "Cari Pembeli (Demand)"]
             goal_display = st.radio(
                 "Tujuan Pencarian",
-                ["Cari Petani (Supply)", "Cari Pembeli (Demand)"],
+                _goal_options,
+                index=_goal_options.index(_def_goal) if _def_goal in _goal_options else 0,
                 horizontal=True,
                 help="Supply = mencari penjual/petani. Demand = mencari pembeli/toko."
             )
@@ -584,7 +635,7 @@ with st.sidebar:
             selected_provinces = st.multiselect(
                 "Wilayah Target",
                 options=province_options,
-                default=["Jawa Timur"],
+                default=_def_provinces,
                 help="Pilih satu atau lebih provinsi target pencarian."
             )
         with fc_r2c2:
@@ -592,7 +643,7 @@ with st.sidebar:
                 "Min. Volume (kg)",
                 min_value=0,
                 max_value=1000000,
-                value=500,
+                value=_def_volume,
                 step=100,
                 help="Volume minimal yang diinginkan (dalam kilogram). Isi 0 jika tidak ada batas."
             )
