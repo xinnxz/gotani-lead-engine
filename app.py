@@ -644,9 +644,9 @@ with st.sidebar:
         spec.product.synonyms = [s.lower() for s in syns] if syns else [com_key]
         if 'selected_varieties' in locals() and selected_varieties:
             spec.product.attributes["variety"] = [v.lower() for v in selected_varieties]
-        spec.location.include = selected_provinces if selected_provinces else ["Jawa Timur"]
+        spec.location.include = selected_provinces  # Kosong = seluruh Indonesia
         
-        min_v = min_volume if 'min_volume' in locals() else 500
+        min_v = min_volume if 'min_volume' in locals() else 0
         spec.volume.min = float(min_v) if min_v > 0 else None
         
         max_p = max_price if 'max_price' in locals() else 0
