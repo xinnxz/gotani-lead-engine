@@ -85,7 +85,7 @@ class FacebookExecutor:
             "resultsPerPage": max_posts,
             "countryCode": "id",
             "languageCode": "id",
-            "timeRange": "m",  # Past month: otomatis singkirkan post basi 1-2 tahun lalu dari Google
+            "tbs": "qdr:m",  # Past month Google parameter: singkirkan post basi 1-2 tahun lalu dari Google
         }
         
         if progress_callback:

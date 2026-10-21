@@ -38,17 +38,18 @@ def relevance(listing: dict, spec: CampaignSpec, raw_text: str) -> tuple[int, li
     score, why = 0.0, []
     low = (raw_text or "").lower()
 
-    terms = spec.product_terms()
+    terms = [t.lower() for t in spec.product_terms()]
     prod = (listing.get("product") or "").lower()
-    product_matched = any(t in prod for t in terms) or any(re.search(rf"\b{re.escape(t)}\b", low) for t in terms)
+    # Hanya anggap cocok jika produk hasil ekstraksi cocok dengan terms komoditas target
+    product_matched = any(t in prod for t in terms) or (prod and any(prod in t for t in terms))
     
     if product_matched:
         score += 40
         why.append(f"+40 produk cocok ({spec.product.name})")
     else:
-        # Penalti keras: jika produk tidak cocok sama sekali, skor tidak boleh tinggi
-        score -= 30
-        why.append("-30 PENALTI: produk sama sekali tidak cocok")
+        # Penalti keras: jika produk tidak cocok sama sekali, skor dipangkas drastis
+        score -= 50
+        why.append(f"-50 PENALTI: produk listing ({listing.get('product') or 'tidak cocok'}) bukan {spec.product.name}")
 
     # Penalti Usia / Kedaluwarsa (PRD F2.3: komoditas panen basi jika postingan sudah > 90 hari / berbulan-bulan lalu)
     posted_date_str = listing.get("posted_at")

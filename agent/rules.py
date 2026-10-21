@@ -78,10 +78,19 @@ def extract(text: str, spec: CampaignSpec, posted_at: str | None = None) -> dict
     snippet = parts[1] if len(parts) > 1 else title
     low_snippet = snippet.lower()
 
-    # Periksa komoditas lain yang bertentangan (misal post jual kelapa saat cari cabai)
-    OTHER_CROPS = ["kelapa", "durian", "sawit", "karet", "kakao", "kopi", "singkong", "tebu", "tembakau", "jagung", "padi", "beras"]
-    target_crop = (spec.product.name or "").lower()
-    competing_crops = [c for c in OTHER_CROPS if c != target_crop]
+    # Periksa komoditas lain yang bertentangan (misal post jual cengkeh saat cari jahe, atau kelapa saat cari cabai)
+    OTHER_CROPS = [
+        # Rempah & Herbal
+        "cengkeh", "pala", "lada", "merica", "kayu manis", "vanili", "kapulaga", "kunyit", "temulawak", "kencur", "lengkuas", "sereh", "serai", "porang", "nilam", "jahe",
+        # Perkebunan & Pangan
+        "kelapa", "durian", "sawit", "karet", "kakao", "kopi", "singkong", "tebu", "tembakau", "jagung", "padi", "beras", "kedelai", "kacang tanah", "kacang hijau",
+        # Sayuran & Hortikultura
+        "cabai", "cabe", "bawang", "bawang merah", "bawang putih", "kentang", "tomat", "wortel", "kubis", "kol", "terong", "buncis", "timun",
+        # Buah-buahan
+        "melon", "semangka", "pisang", "pepaya", "mangga", "alpukat", "jeruk", "salak", "nanas", "apel", "jambu"
+    ]
+    target_terms = [t.lower() for t in spec.product_terms()]
+    competing_crops = [c for c in OTHER_CROPS if not any(t == c or t in c or c in t for t in target_terms)]
 
     other_crop_hit = any(re.search(rf"\b{re.escape(c)}\b", low_snippet) for c in competing_crops)
     product_in_snippet = any(re.search(rf"\b{re.escape(t)}\b", low_snippet) for t in spec.product_terms())
@@ -96,6 +105,7 @@ def extract(text: str, spec: CampaignSpec, posted_at: str | None = None) -> dict
             "attributes": {},
             "flags": ["komoditas_berbeda"],
             "evidence": {"alasan": f"Isi postingan menjual {detected_other}, bukan {spec.product.name}"},
+            "posted_at": posted_at,
         }
 
     low = (text or "").lower()
@@ -189,4 +199,5 @@ def extract(text: str, spec: CampaignSpec, posted_at: str | None = None) -> dict
         "available_text": available_text,
         "flags": flags,
         "evidence": evidence,
+        "posted_at": posted_at,
     }

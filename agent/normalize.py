@@ -100,6 +100,7 @@ def parse_quantity(text: str, skip: tuple[int, int] | None = None) -> tuple[floa
 
 
 INDONESIAN_MONTHS = {
+    # Bahasa Indonesia
     "januari": 1, "jan": 1,
     "februari": 2, "feb": 2,
     "maret": 3, "mar": 3,
@@ -112,6 +113,12 @@ INDONESIAN_MONTHS = {
     "oktober": 10, "okt": 10,
     "november": 11, "nov": 11,
     "desember": 12, "des": 12,
+    # English (Facebook web timestamp)
+    "january": 1, "february": 2, "march": 3,
+    "may": 5, "june": 6, "july": 7,
+    "august": 8, "aug": 8,
+    "october": 10, "oct": 10,
+    "december": 12, "dec": 12,
 }
 
 RELATIVE_DATES = [
@@ -257,12 +264,36 @@ def parse_posted_date(text: str | None, raw_date: str | None = None) -> str | No
     if "kemarin" in low:
         return (now - timedelta(days=1)).date().isoformat()
 
-    # 5. Cek tanggal eksplisit di snippet: "12 Mei 2024", "25 Okt 2023"
-    m_date = re.search(r"(\d{1,2})\s+([a-z]+)\s+(\d{4})", low)
+    # 5. Cek pola relatif bahasa Inggris Facebook (misal: "1y", "2 yrs ago", "3 mos ago")
+    m_eng_yr = re.search(r"\b(\d+)\s*(?:years?|yrs?|y)\s*(?:ago)?\b", low)
+    if m_eng_yr:
+        years = int(m_eng_yr.group(1))
+        return (now - timedelta(days=years * 365)).date().isoformat()
+
+    m_eng_mo = re.search(r"\b(\d+)\s*(?:months?|mos?)\s*(?:ago)?\b", low)
+    if m_eng_mo:
+        months = int(m_eng_mo.group(1))
+        return (now - timedelta(days=months * 30)).date().isoformat()
+
+    # 6. Cek tanggal eksplisit format Day Month Year (misal: "12 Mei 2024", "12 Des 2024")
+    m_date = re.search(r"\b(\d{1,2})\s+([a-z]+)\s+(\d{4})\b", low)
     if m_date:
         d_val = int(m_date.group(1))
         m_name = m_date.group(2)
         y_val = int(m_date.group(3))
+        mo_val = INDONESIAN_MONTHS.get(m_name)
+        if mo_val and 1 <= d_val <= 31:
+            try:
+                return datetime(y_val, mo_val, d_val).date().isoformat()
+            except ValueError:
+                pass
+
+    # 7. Cek tanggal eksplisit format Month Day Year (Facebook timestamp: "December 12, 2024", "Dec 12, 2024")
+    m_mdy = re.search(r"\b([a-z]+)\s+(\d{1,2}),?\s+(\d{4})\b", low)
+    if m_mdy:
+        m_name = m_mdy.group(1)
+        d_val = int(m_mdy.group(2))
+        y_val = int(m_mdy.group(3))
         mo_val = INDONESIAN_MONTHS.get(m_name)
         if mo_val and 1 <= d_val <= 31:
             try:

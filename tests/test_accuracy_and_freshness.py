@@ -92,3 +92,54 @@ class TestAccuracyAndFreshness:
         conf_score, conf_why = confidence(empty_listing, cabai_spec, platform="facebook", confirmations=1)
         assert conf_score <= 30
         assert any("minim data komersial" in w.lower() for w in conf_why)
+
+    def test_reject_cengkeh_post_in_jahe_preset_and_parse_facebook_english_date(self):
+        """Kasus nyata Arsen: Postingan cengkeh 30 ton 12 Desember 2024 di preset jahe."""
+        jahe_spec = CampaignSpec(
+            campaign_id="cmp-jahe-nasional",
+            goal="find_supply",
+            product=Product(name="jahe", attributes={"variety": ["gajah", "emprit", "merah"]}),
+            location=Location(include=["Indonesia"]),
+        )
+        fake_post = (
+            "Komunitas Eksportir Indonesia (Indonesian Exporter Community) · Aqella Al Agniyah Sutisna · December 12, 2024 · 🌐\n"
+            "cengkeh Ready 30 ton harga 110rb minat wa 08569009485"
+        )
+        # 1. Tanggal bahasa Inggris 'December 12, 2024' harus terbaca dengan benar
+        detected_date = parse_posted_date(fake_post)
+        assert detected_date == "2024-12-12"
+
+        # 2. Rule extractor HARUS menolak postingan cengkeh saat mencari jahe
+        res = extract(fake_post, jahe_spec, posted_at=detected_date)
+        assert res["intent"] == "irrelevant"
+        assert res["product"] == "cengkeh"
+        assert "komoditas_berbeda" in res["flags"]
+
+        # 3. Relevansi harus dihukum ganda: produk tidak cocok (-50) dan kadaluwarsa (-60)
+        rel_score, rel_why = relevance(res, jahe_spec, fake_post)
+        assert rel_score == 0  # Clamped to 0
+        assert any("KADALUWARSA" in w for w in rel_why)
+        assert any("bukan jahe" in w.lower() for w in rel_why)
+
+    def test_match_card_null_formatting_safe(self):
+        """Memastikan ketiadaan volume/anggaran pada listing demand tidak memicu TypeError di UI f-string."""
+        m = {
+            "match_id": "m-test-1",
+            "kind": "single",
+            "tier": "review",
+            "buyer_name": "Pak Hendra",
+            "buyer_location": "Surabaya",
+            "product": "jahe",
+            "buyer_vol": None,          # Null volume
+            "buyer_max_price": None,    # Null price
+            "score": 75,
+            "coverage_pct": None,       # Null coverage
+        }
+        # Evaluasi f-string yang sama persis dengan app.py line 1147-1155
+        vol_str = f"{m['buyer_vol']:g} kg" if m.get('buyer_vol') is not None else "Tidak ditentukan"
+        price_str = f"Rp {float(m['buyer_max_price']):,.0f}/kg" if m.get('buyer_max_price') is not None else 'Belum ditentukan'
+        cov_str = f"{m['coverage_pct']:g}%" if m.get('coverage_pct') is not None else "-"
+
+        assert vol_str == "Tidak ditentukan"
+        assert price_str == "Belum ditentukan"
+        assert cov_str == "-"

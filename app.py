@@ -1144,15 +1144,16 @@ with tab2:
                             <span class="apify-pill {tier_class}">{tier_label}</span>
                             <h4 style="margin:8px 0 2px 0; color:#101828;">{m['buyer_name']} ({m['buyer_location']})</h4>
                             <span style="font-size:12px; color:#64748b;">
-                                Komoditas: <b>{m['product'].title()}</b> | Kebutuhan: <b>{m['buyer_vol']:g} kg</b> | 
-                                Anggaran Maksimal: <b>{f'Rp {m["buyer_max_price"]:,.0f}/kg' if m.get('buyer_max_price') else 'Belum ditentukan'}</b>
+                                Komoditas: <b>{(m.get('product') or 'Komoditas').title()}</b> | 
+                                Kebutuhan: <b>{f"{m['buyer_vol']:g} kg" if m.get('buyer_vol') is not None else "Tidak ditentukan"}</b> | 
+                                Anggaran Maksimal: <b>{f"Rp {float(m['buyer_max_price']):,.0f}/kg" if m.get('buyer_max_price') is not None else 'Belum ditentukan'}</b>
                             </span>
                         </div>
                         <div style="text-align:right;">
                             <div style="font-size:1.8rem; font-weight:700; color:#101828; line-height:1;">
-                                {m['score']}<span style="font-size:12px; color:#64748b; font-weight:500;">/100</span>
+                                {m.get('score', 0)}<span style="font-size:12px; color:#64748b; font-weight:500;">/100</span>
                             </div>
-                            <div style="font-size:11px; color:#0284c7; font-weight:600; margin-top:2px;">Cakupan: {m['coverage_pct']:g}%</div>
+                            <div style="font-size:11px; color:#0284c7; font-weight:600; margin-top:2px;">Cakupan: {f"{m['coverage_pct']:g}%" if m.get('coverage_pct') is not None else "-"}</div>
                         </div>
                     </div>
                 </div>
@@ -1167,8 +1168,11 @@ with tab2:
                         target_col = f_cols[idx] if len(items) <= 3 else st
                         with target_col:
                             st.markdown(f"**{it.get('farmer_name') or 'Petani'}** ({it.get('farmer_location') or '-'})")
-                            price_str = f"Rp {it.get('farmer_price', 0):,.0f}/kg" if it.get('farmer_price') else "Belum tertera"
-                            st.caption(f"Alokasi: {it.get('allocated_kg', 0):g} kg | Harga: {price_str}")
+                            f_pr = it.get('farmer_price')
+                            price_str = f"Rp {float(f_pr):,.0f}/kg" if f_pr is not None else "Belum tertera"
+                            al_kg = it.get('allocated_kg')
+                            alloc_str = f"{float(al_kg):g} kg" if al_kg is not None else "-"
+                            st.caption(f"Alokasi: {alloc_str} | Harga: {price_str}")
                             if it.get("distance_km"):
                                 st.caption(f"Estimasi Jarak: {it['distance_km']} km")
                             
@@ -1215,11 +1219,15 @@ with tab2:
                         st.info(f"Catatan Agregasi: {disclaimer_text}")
 
                 margin_info = m.get("margin")
-                if margin_info and margin_info.get("est_gross_margin_rp", 0) > 0:
+                if margin_info and (margin_info.get("est_gross_margin_rp") or 0) > 0:
+                    m_pct = margin_info.get('margin_pct') or 0.1
+                    m_gross = margin_info.get('est_gross_margin_rp') or 0
+                    f_price = margin_info.get('farmer_price') or 0
+                    s_price = margin_info.get('suggested_price') or 0
                     st.markdown(
-                        f"**Estimasi Margin GoTani ({margin_info.get('margin_pct', 0.1):.0%}):** "
-                        f"Rp {margin_info['est_gross_margin_rp']:,.0f} "
-                        f"(Harga Petani: Rp {margin_info['farmer_price']:,.0f}/kg, Rekomendasi Penawaran: Rp {margin_info['suggested_price']:,.0f}/kg)"
+                        f"**Estimasi Margin GoTani ({m_pct:.0%}):** "
+                        f"Rp {m_gross:,.0f} "
+                        f"(Harga Petani: Rp {f_price:,.0f}/kg, Rekomendasi Penawaran: Rp {s_price:,.0f}/kg)"
                     )
 
                 gaps = m.get("gaps", [])
