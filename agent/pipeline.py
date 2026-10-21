@@ -224,8 +224,8 @@ class Pipeline:
                     if gmaps_data:
                         result.setdefault("entity_name", gmaps_data.get("business_name"))
                         result.setdefault("intent", "demand")
-                        if not result.get("contact_phone") and gmaps_data.get("phone"):
-                            phones = [gmaps_data["phone"]]
+                        # Nomor telepon dari Google Maps akan diinjeksi
+                        # SETELAH PII restore (lihat blok di bawah)
                         if not result.get("location_text") and gmaps_data.get("address"):
                             result["location_text"] = gmaps_data["address"]
                         result["_gmaps_meta"] = {
@@ -268,6 +268,11 @@ class Pipeline:
 
                     # Restore PII untuk kontak
                     phones = [val for key, val in mapping.items() if "PHONE" in key]
+                    
+                    # Jika tidak ada phone dari PII, coba dari Google Maps data
+                    if not phones and gmaps_data and gmaps_data.get("phone"):
+                        phones = [gmaps_data["phone"]]
+                    
                     contact_phone = None
                     contact_wa = None
                     if phones:
