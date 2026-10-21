@@ -14,33 +14,57 @@ from .normalize import parse_quantity
 
 # Sinonim awal per komoditas (F1.3). Operator bisa mengedit di Campaign Spec.
 KNOWN_COMMODITIES: dict[str, list[str]] = {
-    "melon": ["melon"],
-    "semangka": ["semangka"],
-    "mangga": ["mangga", "harumanis", "aromanis", "gedong gincu"],
-    "pisang": ["pisang", "cavendish", "kepok"],
-    "jeruk": ["jeruk", "jeruk nipis", "jeruk purut"],
-    "cabai": ["cabai", "cabe", "lombok", "rawit"],
-    "bawang merah": ["bawang merah", "brambang"],
-    "bawang putih": ["bawang putih"],
-    "tomat": ["tomat"],
-    "jagung": ["jagung", "jagung pipil", "jagung pakan"],
-    "padi": ["padi", "gabah", "GKP", "GKG"],
-    "beras": ["beras"],
-    "sawit": ["sawit", "kelapa sawit", "TBS", "tandan buah segar", "buah sawit"],
-    "kopi": ["kopi", "green bean", "biji kopi"],
-    "kakao": ["kakao", "cokelat", "coklat"],
-    "singkong": ["singkong", "ubi kayu", "ketela pohon", "telo"],
-    "kentang": ["kentang"],
+    # Buah-buahan
+    "melon": ["melon", "madesta", "golden", "inthanon", "action 434", "sky rocket"],
+    "semangka": ["semangka", "inul", "semangka merah", "semangka kuning", "non biji"],
+    "mangga": ["mangga", "harumanis", "arumanis", "gedong gincu", "manalagi"],
+    "pisang": ["pisang", "cavendish", "kepok", "raja", "ambon", "barangan"],
+    "jeruk": ["jeruk", "jeruk nipis", "jeruk purut", "jeruk siam", "jeruk medan"],
+    "alpukat": ["alpukat", "avokad", "mentega", "miki", "aligator"],
+    "durian": ["durian", "duren", "montong", "bawor", "musang king", "black thorn"],
+    "nanas": ["nanas", "nanas madu", "honi"],
+    "salak": ["salak", "salak pondoh", "salak madu"],
+    "manggis": ["manggis"],
+    "apel": ["apel", "apel malang", "manalagi", "rome beauty"],
+    "pepaya": ["pepaya", "california", "pepaya calina"],
+    "buah naga": ["buah naga", "dragon fruit"],
+    # Sayuran & Hortikultura
+    "cabai": ["cabai", "cabe", "lombok", "rawit", "cabai merah", "cabai keriting", "ori 212"],
+    "bawang merah": ["bawang merah", "brambang", "tajuk", "bauji"],
+    "bawang putih": ["bawang putih", "kating"],
+    "tomat": ["tomat", "tomat ceri", "servo"],
+    "kentang": ["kentang", "granola", "atlantis"],
     "wortel": ["wortel"],
     "kubis": ["kubis", "kol"],
-    "pisang": ["pisang"],
-    "mangga": ["mangga"],
-    "jeruk": ["jeruk"],
-    "alpukat": ["alpukat", "avokad"],
-    "durian": ["durian"],
-    "nanas": ["nanas", "nanas madu"],
+    # Rempah-rempah & Rimpang
+    "jahe": ["jahe", "jahe merah", "jahe gajah", "jahe emprit", "ginger"],
+    "cengkeh": ["cengkeh", "bunga cengkeh", "cengkeh kering", "clove"],
+    "kunyit": ["kunyit", "kunir", "kunyit kuning", "turmeric"],
+    "temulawak": ["temulawak"],
+    "kencur": ["kencur"],
+    "lengkuas": ["lengkuas", "laos"],
+    "kapulaga": ["kapulaga", "kapulaga jawa"],
+    "pala": ["pala", "biji pala", "fuli pala"],
+    "lada": ["lada", "merica", "lada hitam", "lada putih", "pepper"],
+    "vanili": ["vanili", "vanilla"],
+    "serai": ["serai", "sereh"],
+    # Tanaman Pangan & Perkebunan
+    "jagung": ["jagung", "jagung pipil", "jagung pakan", "jagung manis"],
+    "padi": ["padi", "gabah", "GKP", "GKG"],
+    "beras": ["beras", "beras putih", "beras merah", "pandan wangi"],
+    "kedelai": ["kedelai", "kacang kedelai"],
+    "kacang tanah": ["kacang tanah"],
+    "kacang hijau": ["kacang hijau"],
+    "singkong": ["singkong", "ubi kayu", "ketela pohon", "telo"],
+    "ubi jalar": ["ubi jalar", "ubi", "ubi cilembu"],
+    "porang": ["porang", "katak porang", "umbi porang"],
+    "sawit": ["sawit", "kelapa sawit", "TBS", "tandan buah segar", "buah sawit"],
+    "kopi": ["kopi", "green bean", "biji kopi", "arabika", "robusta"],
+    "kakao": ["kakao", "cokelat", "coklat", "biji kakao"],
     "tebu": ["tebu"],
-    "kedelai": ["kedelai"],
+    "karet": ["karet", "getah karet", "lateks"],
+    "teh": ["teh", "pucuk teh"],
+    "tembakau": ["tembakau"],
 }
 
 DEMAND_HINTS = r"\b(cari pembeli|cari buyer|cari pedagang|cari eksportir|cari distributor|yang butuh|pembeli|buyer|offtaker|penampung)\b"
@@ -162,9 +186,25 @@ def draft_spec_offline(text: str, campaign_id: str) -> CampaignSpec:
 
     for name in sorted(KNOWN_COMMODITIES, key=len, reverse=True):
         if any(re.search(rf"\b{re.escape(s.lower())}\b", low) for s in KNOWN_COMMODITIES[name]):
-            spec.product.name = name
+            spec.product.name = name.capitalize()
             spec.product.synonyms = KNOWN_COMMODITIES[name]
             break
+
+    if not spec.product.name:
+        m_prod = re.search(
+            r"\b(?:cari\s+petani|butuh\s+petani|cari\s+pasokan|butuh\s+pasokan|petani|pasokan|komoditas|panen|stok|supplier|jual|beli|cari)\s+([a-zA-Z]{3,15})",
+            low,
+        )
+        if m_prod:
+            word = m_prod.group(1).lower()
+            stopwords = {
+                "di", "yang", "untuk", "ke", "dari", "area", "wilayah", "lokasi",
+                "minimal", "harga", "segar", "kualitas", "murah", "cepat", "petani",
+                "pasokan", "stok", "buyer", "supplier", "online", "grup"
+            }
+            if word not in stopwords:
+                spec.product.name = word.capitalize()
+                spec.product.synonyms = [word]
 
     prov = wilayah.mentions_province(low)
     if prov:

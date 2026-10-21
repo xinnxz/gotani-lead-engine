@@ -7,6 +7,8 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+import re
+from agent.masking import MOBILE_RE
 from agent.campaign import (
     CampaignSpec, draft_spec_llm, draft_spec_offline,
     new_campaign_id, save_campaign, list_campaigns,
@@ -546,22 +548,34 @@ with st.sidebar:
         )
         if st.button("Susun Spesifikasi (AI)"):
             if not prompt_text.strip():
-                st.warning("Masukkan kriteria pencarian terlebih dahulu.")
+                st.warning("Silakan ketik kriteria pencarian terlebih dahulu. Contoh: 'Cari petani jahe di Jatim min 500 kg'")
             else:
-                with st.spinner("Menyusun spesifikasi kampanye..."):
+                with st.spinner("AI sedang menganalisis kriteria & menyusun spesifikasi kampanye..."):
                     cid = new_campaign_id(conn)
                     spec = None
+                    mode_used = "Online AI (Gemini)"
+                    error_note = None
                     if gateway.available:
                         try:
                             spec, qs = draft_spec_llm(gateway, prompt_text, cid)
-                            if qs:
-                                for q in qs:
-                                    st.info(f"Saran pelengkap: {q}")
                         except Exception as e:
-                            st.warning(f"API AI sibuk: {e}")
+                            error_note = str(e)
+                            spec = None
                     if spec is None:
                         spec = draft_spec_offline(prompt_text, cid)
+                        mode_used = "Smart Rule-Based Parser (Offline)"
+
                     st.session_state["draft_spec"] = spec.to_json()
+                    st.session_state["spec_version"] = st.session_state.get("spec_version", 0) + 1
+                    st.session_state["spec_notice"] = {
+                        "product": spec.product.name or "Komoditas",
+                        "goal": "Pasokan (Petani)" if spec.goal == "find_supply" else "Permintaan (Pembeli)",
+                        "location": ", ".join(spec.location.include) or "Nasional",
+                        "volume": f"{spec.volume.min:g} kg" if spec.volume.min else "Bebas",
+                        "mode": mode_used,
+                        "fallback": bool(error_note),
+                    }
+                    st.session_state["notify_success"] = f"Spesifikasi kampanye untuk '{spec.product.name or 'Komoditas'}' berhasil disusun via {mode_used}! Periksa konfigurasi di bawah lalu klik 'Jalankan Pipeline'."
                     st.rerun()
     else:
         # Pilihan Cepat Preset Template untuk Isi Manual
@@ -601,12 +615,44 @@ with st.sidebar:
                     tpl_spec.location.include = ["Surabaya", "Sidoarjo", "Malang"]
                     tpl_spec.volume.min = 1000.0
                 st.session_state["draft_spec"] = tpl_spec.to_json()
+                st.session_state["spec_version"] = st.session_state.get("spec_version", 0) + 1
+                st.session_state["spec_notice"] = {
+                    "product": tpl_spec.product.name or "Komoditas",
+                    "goal": "Pasokan (Petani)" if tpl_spec.goal == "find_supply" else "Permintaan (Pembeli)",
+                    "location": ", ".join(tpl_spec.location.include) or "Nasional",
+                    "volume": f"{tpl_spec.volume.min:g} kg" if tpl_spec.volume.min else "Bebas",
+                    "mode": "Template Preset",
+                    "fallback": False,
+                }
+                st.session_state["notify_success"] = f"Template '{tpl_choice}' berhasil dimuat ke spesifikasi!"
                 st.rerun()
 
+    # Tampilkan kartu konfirmasi jika spesifikasi baru saja disusun atau dimuat
+    notice = st.session_state.get("spec_notice")
+    if notice:
+        fallback_html = '<div style="font-size:10px; color:#b45309; margin-top:4px;">* Catatan: Kuota online Gemini sedang penuh/limit, dialihkan otomatis ke Rule-Based Engine.</div>' if notice.get('fallback') else ''
+        st.markdown(f"""
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:10px; margin-top:6px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:600; color:#166534; font-size:12px;">✓ Spesifikasi Berhasil Disusun</span>
+                <span style="font-size:10px; background:#dcfce7; color:#15803d; padding:1px 6px; border-radius:4px; font-weight:500;">{notice['mode']}</span>
+            </div>
+            <div style="font-size:11px; color:#14532d; margin-top:5px; line-height:1.4;">
+                • <b>Komoditas:</b> {notice['product']}<br>
+                • <b>Tujuan:</b> {notice['goal']}<br>
+                • <b>Wilayah:</b> {notice['location']}<br>
+                • <b>Min. Volume:</b> {notice['volume']}
+            </div>
+            {fallback_html}
+        </div>
+        """, unsafe_allow_html=True)
+
     # Kotak Konfigurasi JSON SELALU TERSEDIA untuk diedit / ditempel manual
+    spec_ver = st.session_state.get("spec_version", 0)
     edited_spec_json = st.text_area(
         "Konfigurasi Spesifikasi (JSON)",
         value=st.session_state.get("draft_spec", "{}"),
+        key=f"spec_json_editor_{spec_ver}",
         height=220,
         help="Anda dapat mengedit atau menempel JSON kustom secara manual kapan saja."
     )
@@ -1609,20 +1655,58 @@ with tab3:
 with tab4:
     df_raw = pd.read_sql_query("""
         SELECT
-            id AS ID,
-            platform AS Platform,
-            campaign_id AS Campaign,
-            url AS URL,
-            fetched_at AS Waktu_Scrape,
-            raw_text AS Teks_Original,
-            processed AS Diproses
-        FROM raw_items
-        ORDER BY id DESC LIMIT 200
+            r.id AS ID,
+            r.platform AS Platform,
+            r.campaign_id AS Campaign,
+            COALESCE(NULLIF(r.author_name, ''), 'Anonim / Publik') AS Pemosting,
+            (SELECT l.contact_phone FROM listings l WHERE l.raw_item_id = r.id AND l.contact_phone IS NOT NULL LIMIT 1) AS Listing_Phone,
+            r.raw_text AS Teks_Original,
+            r.url AS URL,
+            r.fetched_at AS Waktu_Scrape,
+            r.processed AS Diproses
+        FROM raw_items r
+        ORDER BY r.id DESC LIMIT 200
     """, conn)
 
     if df_raw.empty:
         st.caption("Data log mentah kosong.")
     else:
+        # Ekstraksi dan format nomor kontak faktual dari data listing atau teks postingan mentah
+        def _get_raw_contact(row):
+            c = row.get("Listing_Phone")
+            if pd.notna(c) and str(c).strip() and str(c).strip() != "-":
+                raw_c = str(c).strip()
+            else:
+                text = str(row.get("Teks_Original", ""))
+                matches = MOBILE_RE.findall(text)
+                raw_c = matches[0].strip() if matches else None
+
+            if not raw_c:
+                return "-"
+
+            digits = re.sub(r"\D", "", raw_c)
+            if digits.startswith("628"):
+                digits = "08" + digits[3:]
+            elif digits.startswith("8"):
+                digits = "08" + digits[1:]
+
+            if len(digits) >= 10:
+                if len(digits) == 10:
+                    return f"{digits[:4]}-{digits[4:7]}-{digits[7:]}"
+                elif len(digits) == 11:
+                    return f"{digits[:4]}-{digits[4:7]}-{digits[7:]}"
+                elif len(digits) == 12:
+                    return f"{digits[:4]}-{digits[4:8]}-{digits[8:]}"
+                else:
+                    return f"{digits[:4]}-{digits[4:8]}-{digits[8:]}"
+            return raw_c or "-"
+
+        df_raw["Kontak"] = df_raw.apply(_get_raw_contact, axis=1)
+        df_raw = df_raw.drop(columns=["Listing_Phone"])
+
+        cols_order = ["ID", "Platform", "Pemosting", "Kontak", "Campaign", "URL", "Teks_Original", "Waktu_Scrape", "Diproses"]
+        df_raw = df_raw[[c for c in cols_order if c in df_raw.columns]]
+
         csv_raw = df_raw.to_csv(index=False).encode("utf-8")
         st.download_button(
             "Export Raw Log (CSV)", csv_raw,
@@ -1636,9 +1720,12 @@ with tab4:
             column_config={
                 "ID": st.column_config.NumberColumn("#", width="small"),
                 "Platform": st.column_config.TextColumn("Sumber", width="small"),
+                "Pemosting": st.column_config.TextColumn("Pemosting", width="medium"),
+                "Kontak": st.column_config.TextColumn("Kontak / No. HP", width="medium"),
                 "Campaign": st.column_config.TextColumn("Campaign", width="medium"),
                 "URL": st.column_config.LinkColumn("Tautan Sumber", display_text="Buka Tautan", width="medium"),
                 "Teks_Original": st.column_config.TextColumn("Teks Postingan Asli", width="large"),
+                "Waktu_Scrape": st.column_config.TextColumn("Waktu Scrape", width="small"),
                 "Diproses": st.column_config.CheckboxColumn("Diproses"),
             },
         )
