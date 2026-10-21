@@ -926,6 +926,7 @@ with tab1:
             l.score_reasons_json AS Alasan_Skor,
             l.review_status AS Review,
             l.extractor AS Extractor,
+            r.platform AS Platform,
             r.posted_at AS Tgl_Post,
             r.url AS URL
         FROM listings l
@@ -1092,6 +1093,26 @@ with tab1:
             
         df_leads["Label_Sumber"] = df_leads["URL"].apply(detect_link_label)
 
+        # Format sumber data (Google Maps vs Facebook)
+        def format_sumber(row):
+            platform = row.get("Platform", "")
+            if platform == "google_maps":
+                # Cek rating dari attributes_json
+                attrs = db.loads(row.get("Atribut", "{}"), default={})
+                meta = attrs.get("_gmaps_meta", {}) if isinstance(attrs, dict) else {}
+                rating = meta.get("rating")
+                reviews = meta.get("reviews")
+                parts = ["Google Maps"]
+                if rating:
+                    parts.append(f"{rating}/5")
+                if reviews and reviews > 0:
+                    parts.append(f"({reviews} ulasan)")
+                return " ".join(parts)
+            elif platform == "facebook":
+                return "Facebook"
+            return platform or "-"
+        df_leads["Sumber"] = df_leads.apply(format_sumber, axis=1)
+
         # Header Export Row (Apify style)
         top_c1, top_c2 = st.columns([1, 4])
         with top_c1:
@@ -1104,7 +1125,7 @@ with tab1:
 
         display_cols = [
             "id", "Komoditas", "Kategori", "Volume", "Harga", "Tgl_Post", 
-            "Lokasi", "Nama", "Kontak", "Chat_WA", "Rel_Score", "Conf_Score", "Review", "Label_Sumber", "URL"
+            "Lokasi", "Nama", "Kontak", "Chat_WA", "Sumber", "Rel_Score", "Conf_Score", "Review", "URL"
         ]
         
         df_leads_display = df_leads.copy()
@@ -1128,8 +1149,8 @@ with tab1:
                 "Rel_Score": st.column_config.ProgressColumn("Relevansi", min_value=0, max_value=100, format="%d%%", width="small"),
                 "Conf_Score": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=100, format="%d%%", width="small"),
                 "Tgl_Post": st.column_config.TextColumn("Tgl Post", width="small", help="Tanggal postingan asli ditemukan oleh Google. Maksimal 1 bulan dari sekarang."),
+                "Sumber": st.column_config.TextColumn("Sumber Data", width="medium", help="Platform asal data: Google Maps (bisnis terverifikasi) atau Facebook (postingan komunitas)"),
                 "Review": st.column_config.TextColumn("Status", width="small"),
-                "Label_Sumber": st.column_config.TextColumn("Tipe Sumber", width="small"),
                 "URL": st.column_config.LinkColumn("Tautan", display_text="Buka Tautan", width="small"),
             },
         )

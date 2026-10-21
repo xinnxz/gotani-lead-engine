@@ -159,7 +159,10 @@ def confidence(listing: dict, spec: CampaignSpec, platform: str, confirmations: 
         why.append("+0 tidak ada jalur kontak")
 
     # Sinyal "akun/sumber aktif". MVP memakai tanggal post sebagai pengganti (PRD §7.4 catatan).
-    if platform == "web":
+    if platform == "google_maps":
+        score += 25
+        why.append("+25 data terstruktur dari Google Maps (bisnis terverifikasi)")
+    elif platform == "web":
         score += 15
         why.append("+15 situs bisa diakses (tanda aktivitas belum dicek)")
     elif age is not None and age <= 30:
@@ -195,6 +198,15 @@ def confidence(listing: dict, spec: CampaignSpec, platform: str, confirmations: 
     if listing.get("kabupaten") or listing.get("provinsi"):
         score += 5
         why.append("+5 lokasi terdeteksi")
+
+    # Bonus: Google Maps rating tinggi = bisnis kredibel dan aktif
+    gmaps_meta = listing.get("_gmaps_meta") or {}
+    if gmaps_meta.get("rating") and gmaps_meta["rating"] >= 4.0:
+        score += 5
+        why.append(f"+5 rating Google Maps tinggi ({gmaps_meta['rating']}/5)")
+    if gmaps_meta.get("reviews") and gmaps_meta["reviews"] >= 50:
+        score += 5
+        why.append(f"+5 banyak ulasan di Google Maps ({gmaps_meta['reviews']} ulasan)")
 
     # Penalti kelengkapan data komersial (jika tidak ada kontak, volume, dan harga)
     has_contact = bool(listing.get("contact_wa") or listing.get("contact_phone") or listing.get("contact_email"))
