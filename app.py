@@ -28,6 +28,10 @@ from agent.outreach import (
     draft_buyer_outreach_for_match,
     build_matches_export_dataframe,
 )
+from agent.compliance import is_do_not_contact, register_opt_out_contact, is_within_operating_hours
+from agent.handover import evaluate_inbound_message
+from agent.sales_agent import generate_initial_outreach, generate_conversational_reply, summarize_conversation
+from agent.cadence import get_due_followups, generate_followup_message, advance_followup, calculate_due_date
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
@@ -325,6 +329,37 @@ st.markdown("""
         border-bottom: 2px solid #0284c7 !important;
     }
 
+    /* Phase 3 CRM Badges & Chat Bubbles */
+    .apify-badge-drafted { background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .apify-badge-sent { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .apify-badge-followup1, .apify-badge-followup2 { background-color: #fefce8; color: #854d0e; border: 1px solid #fef08a; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .apify-badge-active { background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .apify-badge-handover { background-color: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .apify-badge-won { background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .apify-badge-lost { background-color: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+    .apify-badge-optout { background-color: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    
+    .chat-bubble-outbound {
+        background-color: #ecfdf3;
+        border: 1px solid #d1fadf;
+        border-radius: 8px 8px 2px 8px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        color: #027a48;
+        font-size: 13px;
+        line-height: 1.4;
+    }
+    .chat-bubble-inbound {
+        background-color: #f2f4f7;
+        border: 1px solid #eaecf0;
+        border-radius: 8px 8px 8px 2px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        color: #344054;
+        font-size: 13px;
+        line-height: 1.4;
+    }
+
     /* Links in Tables */
     a {
         color: #0284c7;
@@ -584,9 +619,12 @@ try:
     total_leads = conn.execute("SELECT COUNT(*) FROM listings WHERE duplicate_of IS NULL").fetchone()[0]
     high_conf = conn.execute("SELECT COUNT(*) FROM listings WHERE confidence >= 80 AND duplicate_of IS NULL").fetchone()[0]
     total_matches = conn.execute("SELECT COUNT(*) FROM matches").fetchone()[0]
+    total_convs = conn.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
+    total_handovers = conn.execute("SELECT COUNT(*) FROM conversations WHERE state = 'handover_pending'").fetchone()[0]
+    total_won = conn.execute("SELECT COUNT(*) FROM conversations WHERE state = 'closed_won'").fetchone()[0]
     usage = gateway.usage_today()
 except Exception:
-    total_raw, total_leads, high_conf, total_matches = 0, 0, 0, 0
+    total_raw, total_leads, high_conf, total_matches, total_convs, total_handovers, total_won = 0, 0, 0, 0, 0, 0, 0
     usage = {"cost_usd": 0.0, "requests": 0}
 
 last_run_time = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -601,6 +639,7 @@ st.markdown(f"""
             <span class="apify-meta-item">Total Posts: <b>{total_raw}</b></span>
             <span class="apify-meta-item">Valid Leads: <b>{total_leads}</b></span>
             <span class="apify-meta-item">Matches: <b>{total_matches}</b></span>
+            <span class="apify-meta-item">CRM Convs: <b>{total_convs}</b></span>
             <span class="apify-meta-item">Biaya: <b>${usage['cost_usd']:.3f}</b></span>
             <span class="apify-meta-item">Waktu: <b>{last_run_time}</b></span>
         </div>
@@ -676,18 +715,20 @@ if st.session_state.get("notify_match_warning"):
             st.rerun()
 
 # 3. Metric Summary Cards (Apify Dashboard Widget Style)
-col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-col_m1.metric("Raw Scraped Posts", f"{total_raw:,}", help="Jumlah postingan yang tersimpan dari penelusuran Google Search Scraper.")
-col_m2.metric("Extracted Leads", f"{total_leads:,}", help="Jumlah data lead yang berhasil diekstrak dan dinormalisasi.")
-col_m3.metric("High Confidence", f"{high_conf:,}", help="Prospek terverifikasi dengan tingkat keyakinan data ≥ 80%.")
-col_m4.metric("Active Matches", f"{total_matches:,}", help="Jumlah rekomendasi kecocokan pasokan dan permintaan yang teridentifikasi.")
+col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
+col_m1.metric("Raw Posts", f"{total_raw:,}", help="Jumlah postingan yang tersimpan dari penelusuran Google Search Scraper.")
+col_m2.metric("Valid Leads", f"{total_leads:,}", help="Jumlah data lead yang berhasil diekstrak dan dinormalisasi.")
+col_m3.metric("High Conf", f"{high_conf:,}", help="Prospek terverifikasi dengan tingkat keyakinan data ≥ 80%.")
+col_m4.metric("Matches", f"{total_matches:,}", help="Jumlah rekomendasi kecocokan pasokan dan permintaan yang teridentifikasi.")
+col_m5.metric("Sales CRM", f"{total_convs:,}", help="Jumlah sesi percakapan prospek aktif di Sales CRM Fase 3.")
 
 st.write("") # Spacer
 
 # 4. Main Tabs Navigation (Apify Output Style)
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     f"Verified Leads ({total_leads})",
     f"Matchmaking & Pooling ({total_matches})",
+    f"Sales Inbox CRM ({total_convs})",
     f"Raw Data Log ({total_raw})",
     "Riwayat Kampanye",
 ])
@@ -1124,8 +1165,258 @@ with tab2:
                         st.caption(f"Hasil Akhir: {str(m.get('outcome')).upper()} ({m.get('outcome_reason') or '-'})")
 
 
-# ================= TAB 3: RAW DATA LOG =================
+
+# ================= TAB 3: SALES INBOX & OUTREACH CRM (FASE 3) =================
 with tab3:
+    st.markdown("### Sales Inbox & Outreach CRM")
+    st.caption("Pusat komando outreach terpersonalisasi, cadence follow-up otomatis, smart handover eskalasi, dan kepatuhan UU PDP (PRD §7.8)")
+
+    # 1. Action bar & Metrics
+    crm_c1, crm_c2, crm_c3, crm_c4 = st.columns(4)
+    crm_c1.metric("Total Percakapan", total_convs, help="Jumlah seluruh sesi percakapan prospek terdaftar.")
+    crm_c2.metric("Butuh Handover", total_handovers, help="Percakapan yang memerlukan penanganan langsung staf sales.")
+    crm_c3.metric("Deals Selesai (Won)", total_won, help="Transaksi yang berhasil disepakati.")
+    
+    total_dnc = conn.execute("SELECT COUNT(*) FROM opt_outs").fetchone()[0]
+    crm_c4.metric("Supresi Opt-Out", total_dnc, help="Nomor telepon yang meminta berhenti dihubungi (UU PDP).")
+
+    # 2. Check Cadence Follow-Up Due
+    due_followups = get_due_followups(conn)
+    if due_followups:
+        st.warning(f"Ada {len(due_followups)} percakapan yang telah jatuh tempo untuk dikirimkan pesan follow-up.")
+        with st.expander(f"Lihat Daftar Pengingat Jatuh Tempo ({len(due_followups)})", expanded=True):
+            for df_row in due_followups:
+                df_c1, df_c2 = st.columns([3, 1])
+                with df_c1:
+                    st.markdown(f"**{df_row['contact_name'] or 'Kontak'}** ({df_row['contact_phone']}) - Komoditas: {df_row['product']}")
+                    st.caption(f"Status: {df_row['state']} | Follow-up ke-{df_row['followup_count'] + 1} jatuh tempo pada {df_row['followup_due_at']}")
+                with df_c2:
+                    fu_msg = generate_followup_message(conn, df_row['id'])
+                    fu_url = format_wa_url(df_row['contact_phone'], fu_msg)
+                    if fu_url:
+                        st.markdown(f"[Kirim Follow-Up via WA]({fu_url})")
+                    if st.button(f"Tandai Terkirim #{df_row['id']}", key=f"btn_send_fu_{df_row['id']}"):
+                        db.add_message(conn, df_row['id'], "outbound", "ai", fu_msg, delivery_status="sent")
+                        advance_followup(conn, df_row['id'])
+                        st.success(f"Follow-up untuk #{df_row['id']} berhasil dicatat!")
+                        st.rerun()
+
+    st.write("")
+    # 3. Filter controls
+    f_c1, f_c2, f_c3 = st.columns([1.5, 1.5, 2])
+    with f_c1:
+        crm_state_filter = st.selectbox(
+            "Filter Status Percakapan",
+            ["Semua", "drafted", "sent", "followup_1", "active", "handover_pending", "closed_won", "closed_lost", "opt_out"],
+            index=0,
+            key="crm_filter_state"
+        )
+    with f_c2:
+        crm_role_filter = st.selectbox(
+            "Filter Peran Prospek",
+            ["Semua", "farmer", "buyer"],
+            index=0,
+            key="crm_filter_role"
+        )
+
+    # Inisiasi Percakapan Baru dari Listing Approved
+    with f_c3:
+        st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+        with st.popover("Inisiasi Outreach Lead Baru"):
+            st.caption("Pilih lead terverifikasi untuk dibuatkan draf percakapan pertama:")
+            avail_leads = conn.execute("""
+                SELECT id, entity_name, product, intent, contact_phone, kabupaten
+                FROM listings
+                WHERE contact_phone IS NOT NULL
+                  AND duplicate_of IS NULL
+                  AND id NOT IN (SELECT listing_id FROM conversations)
+                ORDER BY relevance DESC, confidence DESC LIMIT 15
+            """).fetchall()
+            if not avail_leads:
+                st.caption("Semua lead yang memiliki kontak sudah memiliki sesi percakapan.")
+            else:
+                lead_choices = {f"#{l['id']} - {l['entity_name'] or 'Anonim'} ({l['product']}, {l['intent']}, {l['kabupaten']})": l for l in avail_leads}
+                sel_lead_key = st.selectbox("Pilih Prospek", list(lead_choices.keys()))
+                if st.button("Buat Sesi Percakapan", type="primary"):
+                    sel_l = lead_choices[sel_lead_key]
+                    role_val = "farmer" if sel_l["intent"] == "supply" else "buyer"
+                    # Buat percakapan
+                    c_id = db.create_conversation(
+                        conn,
+                        listing_id=sel_l["id"],
+                        campaign_id="cmp-sales",
+                        contact_phone=sel_l["contact_phone"],
+                        role=role_val,
+                        contact_name=sel_l["entity_name"],
+                        initial_state="drafted",
+                        followup_due_at=calculate_due_date(days_ahead=3),
+                    )
+                    # Buat draf pesan awal
+                    init_draft = generate_initial_outreach(conn, sel_l["id"], gateway=gateway)
+                    db.add_message(conn, c_id, "outbound", "ai", init_draft, delivery_status="draft")
+                    st.session_state["notify_success"] = f"Percakapan #{c_id} untuk '{sel_l['entity_name']}' berhasil diinisiasi!"
+                    st.rerun()
+
+    # 4. Tampilkan daftar percakapan
+    conversations_list = db.list_conversations(conn, state=crm_state_filter, role=crm_role_filter)
+    if not conversations_list:
+        st.info("Belum ada percakapan yang sesuai dengan filter yang dipilih.")
+    else:
+        st.caption(f"Menampilkan {len(conversations_list)} sesi percakapan:")
+        for c in conversations_list:
+            c_dict = dict(c)
+            c_id = c_dict["id"]
+            c_state = c_dict["state"]
+            c_name = c_dict["contact_name"] or "Tanpa Nama"
+            c_phone = c_dict["contact_phone"]
+            c_role = "Petani (Supply)" if c_dict["role"] == "farmer" else "Pembeli (Demand)"
+            c_prod = (c_dict.get("product") or "komoditas").title()
+            c_vol = f"{c_dict.get('volume_kg'):g} kg" if c_dict.get('volume_kg') else ""
+            c_loc = c_dict.get("kabupaten") or c_dict.get("location_text") or "-"
+
+            # State styling badge
+            badge_class = f"apify-badge-{c_state.replace('_', '')}"
+            if c_state == "handover_pending":
+                badge_class = "apify-badge-handover"
+            elif c_state == "closed_won":
+                badge_class = "apify-badge-won"
+            elif c_state == "closed_lost":
+                badge_class = "apify-badge-lost"
+            elif c_state == "opt_out":
+                badge_class = "apify-badge-optout"
+
+            with st.container():
+                st.markdown(f"""
+                    <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; background-color: #ffffff;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span style="font-size:14px; font-weight:600; color:#0f172a;">#{c_id} {c_name}</span>
+                                <span style="font-size:12px; color:#64748b; margin-left:8px;">({c_role} · {c_prod} {c_vol} · {c_loc})</span>
+                            </div>
+                            <div>
+                                <span class="{badge_class}">{c_state.upper()}</span>
+                            </div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+                # Banner Handover jika pending
+                if c_state == "handover_pending":
+                    st.error(
+                        f"🚨 **ESKALASI HANDOVER SALES:** Percakapan ini membutuhkan respons langsung staf GoTani! "
+                        f"Penyebab: {c_dict.get('summary_text') or 'Lead merespons dengan pertanyaan atau negosiasi.'}"
+                    )
+                    h_act1, h_act2, h_act3 = st.columns(3)
+                    with h_act1:
+                        if st.button("Ambil Alih (Take Over)", key=f"btn_takeover_{c_id}", type="primary"):
+                            db.update_conversation(conn, c_id, state="active", assigned_sales="Staf Aktif")
+                            st.success(f"Percakapan #{c_id} dialihkan ke penanganan staf manusia.")
+                            st.rerun()
+                    with h_act2:
+                        if st.button("Tandai Deal (Closed Won)", key=f"btn_won_{c_id}"):
+                            db.update_conversation(conn, c_id, state="closed_won", summary_text="Kesepakatan deal tercapai.")
+                            st.success(f"Transaksi #{c_id} sukses dicatat sebagai Closed Won!")
+                            st.rerun()
+                    with h_act3:
+                        if st.button("Tutup (Closed Lost)", key=f"btn_lost_{c_id}"):
+                            db.update_conversation(conn, c_id, state="closed_lost", summary_text="Tidak tercapai kesepakatan.")
+                            st.info(f"Percakapan #{c_id} ditutup.")
+                            st.rerun()
+
+                # Riwayat Pesan (Thread Expander)
+                msgs = db.get_messages(conn, c_id)
+                with st.expander(f"Thread Riwayat Pesan ({len(msgs)} pesan)", expanded=(c_state in ("drafted", "handover_pending"))):
+                    for m in msgs:
+                        m_dict = dict(m)
+                        if m_dict["direction"] == "outbound":
+                            st.markdown(
+                                f"""<div style="display:flex; justify-content:flex-end;">
+                                    <div class="chat-bubble-outbound">
+                                        <b>GoTani ({m_dict['sender_type'].upper()})</b> · <span style="font-size:11px; color:#039855;">{m_dict['created_at']}</span><br>
+                                        {m_dict['content']}
+                                    </div>
+                                </div>""",
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            st.markdown(
+                                f"""<div style="display:flex; justify-content:flex-start;">
+                                    <div class="chat-bubble-inbound">
+                                        <b>{c_name} (Lead)</b> · <span style="font-size:11px; color:#667085;">{m_dict['created_at']}</span><br>
+                                        {m_dict['content']}
+                                    </div>
+                                </div>""",
+                                unsafe_allow_html=True
+                            )
+
+                    # Action Panel Percakapan
+                    st.divider()
+                    act_col1, act_col2 = st.columns([1.5, 2])
+                    
+                    with act_col1:
+                        # WhatsApp 1-Click Link
+                        latest_outbound = next((m["content"] for m in reversed(msgs) if m["direction"] == "outbound"), "")
+                        wa_url = format_wa_url(c_phone, latest_outbound)
+                        if wa_url and not is_do_not_contact(conn, c_phone):
+                            st.markdown(f"**[Buka WhatsApp Web / App]({wa_url})**")
+                        elif is_do_not_contact(conn, c_phone):
+                            st.caption("Nomor ini telah Opt-Out (Do-Not-Contact). Pengiriman dinonaktifkan.")
+
+                        if c_state == "drafted":
+                            if st.button("Tandai Pesan Awal Terkirim", key=f"btn_mark_sent_{c_id}"):
+                                db.update_conversation(conn, c_id, state="sent", followup_due_at=calculate_due_date(days_ahead=3))
+                                st.success("Status percakapan diperbarui ke 'sent' (jadwal follow-up H+3 aktif).")
+                                st.rerun()
+
+                    with act_col2:
+                        # Form input balasan masuk dari lead
+                        if c_state not in ("closed_won", "closed_lost", "opt_out"):
+                            with st.form(key=f"form_inbound_{c_id}"):
+                                in_text = st.text_input("Input balasan pesan WhatsApp dari lead:", placeholder="Contoh: Masih ada 1 ton, harga pas berapa?")
+                                submit_inbound = st.form_submit_button("Proses Balasan Lead")
+                                if submit_inbound and in_text.strip():
+                                    # 1. Catat inbound message
+                                    db.add_message(conn, c_id, "inbound", "lead", in_text.strip(), delivery_status="received")
+                                    
+                                    # 2. Evaluasi Handover & Kepatuhan
+                                    eval_res = evaluate_inbound_message(in_text.strip())
+                                    
+                                    if eval_res["trigger_type"] == "opt_out":
+                                        register_opt_out_contact(conn, c_phone, reason="user_stop", source_message=in_text.strip())
+                                        st.warning("Lead meminta berhenti dihubungi. Kontak otomatis dimasukkan ke supresi Do-Not-Contact (UU PDP).")
+                                    elif eval_res["needs_handover"]:
+                                        db.update_conversation(conn, c_id, state="handover_pending", summary_text=eval_res["reason"])
+                                        st.error(f"Eskalasi Handover Terdeteksi: {eval_res['reason']}")
+                                    else:
+                                        # Hasilkan respon AI rutin
+                                        ai_reply = generate_conversational_reply(conn, c_id, in_text.strip(), gateway=gateway)
+                                        db.add_message(conn, c_id, "outbound", "ai", ai_reply, delivery_status="draft")
+                                        db.update_conversation(conn, c_id, state="active", summary_text="AI menyusun draf balasan.")
+                                        st.success("Balasan dianalisis! Draf respon AI telah ditambahkan ke thread percakapan.")
+                                    st.rerun()
+
+    # 5. Tabel Supresi Kepatuhan UU PDP (Opt-Out Registry)
+    with st.expander("Registri Kepatuhan & Supresi Kontak (Do-Not-Contact List - UU PDP G5)", expanded=False):
+        st.caption("Daftar nomor telepon yang meminta berhenti dihubungi atau penghapusan data kontak:")
+        opt_rows = conn.execute("SELECT contact_phone, reason, source_message, opted_out_at FROM opt_outs ORDER BY opted_out_at DESC").fetchall()
+        if opt_rows:
+            st.dataframe(
+                pd.DataFrame([dict(r) for r in opt_rows]),
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "contact_phone": "Nomor Kontak",
+                    "reason": "Alasan Supresi",
+                    "source_message": "Pesan Terakhir Lead",
+                    "opted_out_at": "Waktu Opt-Out"
+                }
+            )
+        else:
+            st.caption("Belum ada kontak yang meminta opt-out.")
+
+
+# ================= TAB 4: RAW DATA LOG =================
+with tab4:
     df_raw = pd.read_sql_query("""
         SELECT
             id AS ID,
@@ -1163,8 +1454,8 @@ with tab3:
         )
 
 
-# ================= TAB 4: RIWAYAT KAMPANYE & RUN LOG =================
-with tab4:
+# ================= TAB 5: RIWAYAT KAMPANYE & RUN LOG =================
+with tab5:
     st.markdown("##### Riwayat Kampanye Pencarian")
     try:
         campaigns = list_campaigns(conn)

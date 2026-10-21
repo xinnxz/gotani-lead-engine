@@ -199,3 +199,201 @@ def save_manual_order(
     conn.commit()
     return int(cur.lastrowid)
 
+
+
+# ============================================================================
+# FASE 3: HELPER DATABASE PERCAKAPAN & KEPATUHAN (PRD §7.8 & §8)
+# ============================================================================
+
+def create_conversation(
+    conn: sqlite3.Connection,
+    listing_id: int,
+    campaign_id: str,
+    contact_phone: str,
+    role: str,
+    *,
+    match_id: int | None = None,
+    contact_name: str | None = None,
+    channel: str = "whatsapp",
+    closing_def: str = "lead_interested",
+    summary_text: str | None = None,
+    assigned_sales: str | None = None,
+    initial_state: str = "drafted",
+    followup_due_at: str | None = None,
+) -> int:
+    """Buat sesi percakapan baru untuk lead penawaran (farmer) atau permintaan (buyer)."""
+    ts = now_iso()
+    cur = conn.execute(
+        """INSERT INTO conversations (
+            match_id, listing_id, campaign_id, channel, contact_phone,
+            contact_name, role, state, closing_def, summary_text,
+            assigned_sales, followup_due_at, followup_count, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)""",
+        (
+            match_id, listing_id, campaign_id, channel, contact_phone,
+            contact_name, role, initial_state, closing_def, summary_text,
+            assigned_sales, followup_due_at, ts, ts
+        ),
+    )
+    conn.commit()
+    return int(cur.lastrowid)
+
+
+def get_conversation(conn: sqlite3.Connection, conversation_id: int) -> sqlite3.Row | None:
+    """Ambil data percakapan berdasarkan ID."""
+    return conn.execute("SELECT * FROM conversations WHERE id = ?", (conversation_id,)).fetchone()
+
+
+def get_conversation_by_listing(conn: sqlite3.Connection, listing_id: int) -> sqlite3.Row | None:
+    """Cari percakapan aktif terakhir yang terkait dengan suatu listing."""
+    return conn.execute(
+        "SELECT * FROM conversations WHERE listing_id = ? ORDER BY created_at DESC LIMIT 1",
+        (listing_id,),
+    ).fetchone()
+
+
+def list_conversations(
+    conn: sqlite3.Connection,
+    state: str | None = None,
+    role: str | None = None,
+    limit: int = 100,
+) -> list[sqlite3.Row]:
+    """Daftar percakapan dengan filter status dan peran, diurutkan dari yang terbaru."""
+    query = """
+        SELECT c.*, l.product, l.volume_kg, l.price_per_kg, l.kabupaten, l.location_text
+        FROM conversations c
+        LEFT JOIN listings l ON c.listing_id = l.id
+    """
+    clauses = []
+    params = []
+
+    if state and state != "Semua":
+        clauses.append("c.state = ?")
+        params.append(state)
+
+    if role and role != "Semua":
+        clauses.append("c.role = ?")
+        params.append(role)
+
+    if clauses:
+        query += " WHERE " + " AND ".join(clauses)
+
+    query += " ORDER BY c.updated_at DESC LIMIT ?"
+    params.append(limit)
+
+    return conn.execute(query, params).fetchall()
+
+
+def update_conversation(
+    conn: sqlite3.Connection,
+    conversation_id: int,
+    *,
+    state: str | None = None,
+    summary_text: str | None = None,
+    assigned_sales: str | None = None,
+    followup_due_at: str | None = None,
+    increment_followup: bool = False,
+) -> bool:
+    """Perbarui status percakapan, ringkasan, atau penugasan staf."""
+    fields = ["updated_at = ?"]
+    params = [now_iso()]
+
+    if state is not None:
+        fields.append("state = ?")
+        params.append(state)
+    if summary_text is not None:
+        fields.append("summary_text = ?")
+        params.append(summary_text)
+    if assigned_sales is not None:
+        fields.append("assigned_sales = ?")
+        params.append(assigned_sales)
+    if followup_due_at is not None:
+        fields.append("followup_due_at = ?")
+        params.append(followup_due_at)
+    if increment_followup:
+        fields.append("followup_count = followup_count + 1")
+
+    params.append(conversation_id)
+    sql = f"UPDATE conversations SET {', '.join(fields)} WHERE id = ?"
+    cur = conn.execute(sql, params)
+    conn.commit()
+    return cur.rowcount > 0
+
+
+def add_message(
+    conn: sqlite3.Connection,
+    conversation_id: int,
+    direction: str,
+    sender_type: str,
+    content: str,
+    *,
+    sender_name: str | None = None,
+    delivery_status: str = "draft",
+    channel_msg_id: str | None = None,
+    sent_at: str | None = None,
+) -> int:
+    """Catat pesan baru (inbound/outbound) ke ledger messages."""
+    ts = now_iso()
+    cur = conn.execute(
+        """INSERT INTO messages (
+            conversation_id, direction, sender_type, sender_name,
+            content, delivery_status, channel_msg_id, sent_at, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            conversation_id, direction, sender_type, sender_name,
+            content, delivery_status, channel_msg_id, sent_at or (ts if delivery_status == "sent" else None), ts
+        ),
+    )
+    conn.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (ts, conversation_id))
+    conn.commit()
+    return int(cur.lastrowid)
+
+
+def get_messages(conn: sqlite3.Connection, conversation_id: int) -> list[sqlite3.Row]:
+    """Ambil seluruh riwayat pesan suatu percakapan secara kronologis."""
+    return conn.execute(
+        "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC",
+        (conversation_id,),
+    ).fetchall()
+
+
+def register_opt_out(
+    conn: sqlite3.Connection,
+    contact_phone: str,
+    reason: str | None = None,
+    source_message: str | None = None,
+) -> bool:
+    """Daftarkan nomor ke supresi Do-Not-Contact global dan update percakapan terkait."""
+    from .normalize import normalize_phone
+    clean_p = normalize_phone(contact_phone) or contact_phone.strip()
+    ts = now_iso()
+
+    conn.execute(
+        """INSERT INTO opt_outs (contact_phone, reason, source_message, opted_out_at)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(contact_phone) DO UPDATE SET
+               reason = excluded.reason,
+               source_message = excluded.source_message,
+               opted_out_at = excluded.opted_out_at""",
+        (clean_p, reason or "user_request", source_message, ts),
+    )
+
+    conn.execute(
+        "UPDATE conversations SET state = 'opt_out', updated_at = ? WHERE contact_phone = ? OR contact_phone LIKE ?",
+        (ts, clean_p, f"%{clean_p[-10:]}"),
+    )
+    conn.commit()
+    return True
+
+
+def is_opted_out(conn: sqlite3.Connection, contact_phone: str) -> bool:
+    """Periksa apakah nomor telepon ada di daftar supresi Do-Not-Contact."""
+    if not contact_phone:
+        return False
+    from .normalize import normalize_phone
+    clean_p = normalize_phone(contact_phone) or contact_phone.strip()
+    row = conn.execute(
+        "SELECT id FROM opt_outs WHERE contact_phone = ? OR contact_phone LIKE ?",
+        (clean_p, f"%{clean_p[-10:]}"),
+    ).fetchone()
+    return bool(row)

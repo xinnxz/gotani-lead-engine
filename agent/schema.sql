@@ -182,3 +182,61 @@ CREATE TABLE IF NOT EXISTS match_items (
 CREATE INDEX IF NOT EXISTS idx_match_demand ON matches (demand_listing_id);
 CREATE INDEX IF NOT EXISTS idx_match_tier ON matches (tier, status);
 
+-- ============================================================================
+-- FASE 3: AI SALES AGENT, PERCAKAPAN & KEPATUHAN UU PDP (PRD §7.8 & §8)
+-- ============================================================================
+
+-- 1. Sesi Percakapan (Conversations Lifecycle)
+CREATE TABLE IF NOT EXISTS conversations (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    match_id          INTEGER,                        -- Relasi ke matches (opsional bila direct lead)
+    listing_id        INTEGER NOT NULL,               -- Relasi ke listings
+    campaign_id       TEXT NOT NULL,
+    channel           TEXT NOT NULL DEFAULT 'whatsapp', -- whatsapp | email | dm_fb | dm_ig
+    contact_phone     TEXT NOT NULL,
+    contact_name      TEXT,
+    role              TEXT NOT NULL,                   -- farmer (supply) | buyer (demand)
+    state             TEXT NOT NULL DEFAULT 'drafted', -- drafted | sent | followup_1 | followup_2 | active | handover_pending | closed_won | closed_lost | opt_out
+    closing_def       TEXT NOT NULL DEFAULT 'lead_interested', -- lead_interested | meeting_scheduled | deal_agreed | payment_received
+    summary_text      TEXT,                            -- Ringkasan konteks percakapan terkini
+    assigned_sales    TEXT,                            -- Staf GoTani penanggung jawab
+    followup_due_at   TEXT,                            -- Jadwal waktu follow-up berikutnya (ISO)
+    followup_count    INTEGER NOT NULL DEFAULT 0,
+    created_at        TEXT NOT NULL,
+    updated_at        TEXT NOT NULL,
+    FOREIGN KEY(match_id) REFERENCES matches(id),
+    FOREIGN KEY(listing_id) REFERENCES listings(id)
+);
+
+-- 2. Pesan Masuk & Keluar (Message Ledger)
+CREATE TABLE IF NOT EXISTS messages (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id   INTEGER NOT NULL,
+    direction         TEXT NOT NULL,                   -- outbound | inbound
+    sender_type       TEXT NOT NULL,                   -- ai | human_operator | lead
+    sender_name       TEXT,
+    content           TEXT NOT NULL,
+    delivery_status   TEXT NOT NULL DEFAULT 'draft',   -- draft | sent | delivered | read | failed
+    channel_msg_id    TEXT,                            -- ID eksternal pesan jika terhubung API resmi
+    sent_at           TEXT,
+    created_at        TEXT NOT NULL,
+    FOREIGN KEY(conversation_id) REFERENCES conversations(id)
+);
+
+-- 3. Kepatuhan & Hak Subjek Data (Do-Not-Contact / Opt-Out, PRD F8.9, UU PDP)
+CREATE TABLE IF NOT EXISTS opt_outs (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    contact_phone     TEXT NOT NULL UNIQUE,
+    reason            TEXT,                            -- stop | unsub | privacy_request | complaint
+    source_message    TEXT,
+    opted_out_at      TEXT NOT NULL
+);
+
+-- Indeks Pencarian Cepat Percakapan & Kepatuhan
+CREATE INDEX IF NOT EXISTS idx_conv_state ON conversations (state);
+CREATE INDEX IF NOT EXISTS idx_conv_phone ON conversations (contact_phone);
+CREATE INDEX IF NOT EXISTS idx_conv_listing ON conversations (listing_id);
+CREATE INDEX IF NOT EXISTS idx_msg_conv ON messages (conversation_id);
+CREATE INDEX IF NOT EXISTS idx_opt_phone ON opt_outs (contact_phone);
+
+

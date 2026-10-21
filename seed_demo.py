@@ -18,6 +18,8 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from agent.db import connect, now_iso
 from agent.normalize import normalize_phone
 from agent.match_runner import run_all_matches
+from agent import db
+from agent.outreach import draft_farmer_outreach_for_lead
 
 CAMPAIGN_ID = "demo_melon_jatim"
 
@@ -537,6 +539,78 @@ def run():
     print("[RUN] Menjalankan Matchmaking & Smart Pooling Engine...")
     stats = run_all_matches(conn, include_pending_high_score=True)
     print(f"[SELESAI] Hasil: {stats['matches_created']} match 1-ke-1 dan {stats['pools_created']} smart pool berhasil dihitung.")
+
+    # 5. Inisiasi Sesi Percakapan & CRM Demo (Fase 3)
+    print("[RUN] Menginisiasi data percakapan sales CRM dan kepatuhan demo (Fase 3)...")
+    
+    l_farmer1 = conn.execute("SELECT id, entity_name, contact_phone, product FROM listings WHERE intent='supply' AND entity_name LIKE '%Budi%' LIMIT 1").fetchone()
+    l_farmer2 = conn.execute("SELECT id, entity_name, contact_phone, product FROM listings WHERE intent='supply' AND entity_name LIKE '%Joko%' LIMIT 1").fetchone()
+    l_buyer1 = conn.execute("SELECT id, entity_name, contact_phone, product FROM listings WHERE intent='demand' LIMIT 1").fetchone()
+    l_farmer_opt = conn.execute("SELECT id, entity_name, contact_phone, product FROM listings WHERE intent='supply' AND entity_name LIKE '%Ahmad%' LIMIT 1").fetchone()
+
+    if l_farmer1:
+        # Percakapan 1: Drafted (Petani Jombang - Draf Siap Kirim)
+        c1_id = db.create_conversation(
+            conn,
+            listing_id=l_farmer1["id"],
+            campaign_id=CAMPAIGN_ID,
+            contact_phone=l_farmer1["contact_phone"],
+            role="farmer",
+            contact_name=l_farmer1["entity_name"],
+            initial_state="drafted",
+            followup_due_at=(datetime.now() + timedelta(days=3)).isoformat(timespec="seconds"),
+        )
+        msg1 = draft_farmer_outreach_for_lead(
+            farmer_name=l_farmer1["entity_name"],
+            commodity=l_farmer1["product"],
+            farmer_location="Jombang",
+            volume_kg=600.0,
+            price_per_kg=7500.0,
+        )
+        db.add_message(conn, c1_id, "outbound", "ai", msg1, delivery_status="draft")
+
+    if l_farmer2:
+        # Percakapan 2: Active (Petani Kediri - Sudah berbalas pesan aktif)
+        c2_id = db.create_conversation(
+            conn,
+            listing_id=l_farmer2["id"],
+            campaign_id=CAMPAIGN_ID,
+            contact_phone=l_farmer2["contact_phone"],
+            role="farmer",
+            contact_name=l_farmer2["entity_name"],
+            initial_state="active",
+            summary_text="Petani mengonfirmasi stok golden 400kg manis legit siap panen besok pagi.",
+        )
+        db.add_message(conn, c2_id, "outbound", "ai", "Halo Pak Joko, salam dari GoTani. Kami melihat informasi ketersediaan melon Golden Pare Kediri. Apakah stok masih ada?", delivery_status="sent")
+        db.add_message(conn, c2_id, "inbound", "lead", "Iya mas masih ada sekitar 4 kuintal, bisa dipetik besok pagi. Buah mulus kualitas super.", delivery_status="received")
+        db.add_message(conn, c2_id, "outbound", "ai", "Baik Pak Joko, kami catat kapasitasnya. Tim kemitraan GoTani akan memeriksa rute angkutan mitra pembeli.", delivery_status="sent")
+
+    if l_buyer1:
+        # Percakapan 3: Handover Pending (Pembeli Surabaya - Meminta negosiasi harga & sampel)
+        c3_id = db.create_conversation(
+            conn,
+            listing_id=l_buyer1["id"],
+            campaign_id=CAMPAIGN_ID,
+            contact_phone=l_buyer1["contact_phone"],
+            role="buyer",
+            contact_name=l_buyer1["entity_name"],
+            initial_state="handover_pending",
+            summary_text="Pembeli berminat pasokan melon dan menanyakan negosiasi harga rutin serta pengiriman sampel.",
+        )
+        db.add_message(conn, c3_id, "outbound", "ai", f"Halo tim {l_buyer1['entity_name']}, tim GoTani telah menyiapkan pasokan petani melon terverifikasi sesuai kebutuhan Anda.", delivery_status="sent")
+        db.add_message(conn, c3_id, "inbound", "lead", "Bisa kirim sampel 1 dus dulu? Lalu kalau cocok harga grosirnya bisa kurang gak untuk kontrak rutin mingguan?", delivery_status="received")
+
+    if l_farmer_opt:
+        # Percakapan 4: Opt-Out (Simulasi Kepatuhan UU PDP)
+        db.register_opt_out(
+            conn,
+            contact_phone=l_farmer_opt["contact_phone"],
+            reason="user_request_stop",
+            source_message="Maaf jangan wa nomor ini lagi, kebun saya sudah laku borongan.",
+        )
+
+    conn.commit()
+    print("[OK] Sesi percakapan sales CRM dan catatan kepatuhan UU PDP berhasil dimuat.")
 
 
 if __name__ == "__main__":
