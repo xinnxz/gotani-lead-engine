@@ -237,55 +237,125 @@ st.markdown("""
         margin-bottom: 16px !important;
         align-items: center !important;
     }
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-warning) {
+        background-color: #fffaeb !important;
+        border: 1px solid #fedf89 !important;
+        border-radius: 6px !important;
+        padding: 8px 14px !important;
+        margin-bottom: 16px !important;
+        align-items: center !important;
+    }
+    div[data-testid="column"]:has(.notify-marker-success),
+    div[data-testid="column"]:has(.notify-marker-info),
+    div[data-testid="column"]:has(.notify-marker-warning),
     div[data-testid="stColumn"]:has(.notify-marker-success),
-    div[data-testid="stColumn"]:has(.notify-marker-info) {
+    div[data-testid="stColumn"]:has(.notify-marker-info),
+    div[data-testid="stColumn"]:has(.notify-marker-warning) {
         display: flex !important;
         align-items: center !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.notify-marker-success) div[data-testid="stVerticalBlock"],
-    div[data-testid="stHorizontalBlock"]:has(.notify-marker-info) div[data-testid="stVerticalBlock"] {
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-info) div[data-testid="stVerticalBlock"],
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-warning) div[data-testid="stVerticalBlock"] {
         gap: 0 !important;
     }
+
+    /* Target close button column */
+    div[data-testid="column"]:has(.notify-close-marker),
     div[data-testid="stColumn"]:has(.notify-close-marker) {
         display: flex !important;
         justify-content: flex-end !important;
         align-items: center !important;
-        min-width: 28px !important;
+        min-width: 32px !important;
     }
-    div[data-testid="stColumn"]:has(.notify-close-marker) .stButton {
+    div[data-testid="column"]:has(.notify-close-marker) .stButton,
+    div[data-testid="stColumn"]:has(.notify-close-marker) .stButton,
+    div[data-testid="column"]:has(.notify-close-marker) div[data-testid="stButton"],
+    div[data-testid="stColumn"]:has(.notify-close-marker) div[data-testid="stButton"] {
         width: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
-    div[data-testid="stColumn"]:has(.notify-close-marker) .stButton>button {
+
+    /* Completely strip white background, border, and shadow from the close '✕' button */
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-success) button,
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-info) button,
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-warning) button,
+    div[data-testid="column"]:has(.notify-close-marker) button,
+    div[data-testid="stColumn"]:has(.notify-close-marker) button {
         background: transparent !important;
+        background-color: transparent !important;
         border: none !important;
+        border-color: transparent !important;
         box-shadow: none !important;
-        color: #475467 !important;
-        font-size: 13px !important;
-        font-weight: 600 !important;
-        padding: 0px 4px !important;
-        min-height: 0 !important;
-        min-width: 0 !important;
-        height: auto !important;
-        width: auto !important;
+        outline: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        min-height: 26px !important;
+        height: 26px !important;
+        min-width: 26px !important;
+        width: 26px !important;
+        border-radius: 4px !important;
         line-height: 1 !important;
         cursor: pointer !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: all 0.15s ease !important;
     }
-    div[data-testid="stColumn"]:has(.notify-close-marker) .stButton>button:hover {
-        color: #0f172a !important;
-        background: transparent !important;
-        border: none !important;
+
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-success) button {
+        color: #027a48 !important;
     }
-    div[data-testid="stColumn"]:has(.notify-close-marker) .stButton>button:active,
-    div[data-testid="stColumn"]:has(.notify-close-marker) .stButton>button:focus {
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-success) button:hover {
+        background-color: rgba(2, 122, 72, 0.12) !important;
+        color: #054f31 !important;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-info) button {
+        color: #175cd3 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-info) button:hover {
+        background-color: rgba(23, 92, 211, 0.12) !important;
+        color: #0b3273 !important;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-warning) button {
+        color: #b54708 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-warning) button:hover {
+        background-color: rgba(181, 71, 8, 0.12) !important;
+        color: #7a2e05 !important;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-success) button:active,
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-info) button:active,
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-warning) button:active,
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-success) button:focus,
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-info) button:focus,
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-warning) button:focus {
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
+        outline: none !important;
     }
-    div[data-testid="stColumn"]:has(.notify-close-marker) p {
-        font-size: 13px !important;
+
+    /* Crisp, centered and visible cross glyph */
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-success) button p,
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-info) button p,
+    div[data-testid="stHorizontalBlock"]:has(.notify-marker-warning) button p,
+    div[data-testid="column"]:has(.notify-close-marker) button p,
+    div[data-testid="stColumn"]:has(.notify-close-marker) button p,
+    div[data-testid="column"]:has(.notify-close-marker) button div[data-testid="stMarkdownContainer"],
+    div[data-testid="stColumn"]:has(.notify-close-marker) button div[data-testid="stMarkdownContainer"] {
+        font-size: 16px !important;
+        font-weight: 700 !important;
         line-height: 1 !important;
         margin: 0 !important;
         padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
 
     /* Sidebar Styling */
@@ -671,7 +741,7 @@ st.markdown(f"""
 
 # Notifikasi Aksi (Dismissable dengan tombol ✕ di dalam area alert)
 if st.session_state.get("notify_success"):
-    c_alert, c_btn = st.columns([0.97, 0.03])
+    c_alert, c_btn = st.columns([0.96, 0.04])
     with c_alert:
         st.markdown(
             f'<div class="notify-marker-success" style="display:none;"></div>'
@@ -687,7 +757,7 @@ if st.session_state.get("notify_success"):
             st.rerun()
 
 if st.session_state.get("notify_info"):
-    c_alert, c_btn = st.columns([0.97, 0.03])
+    c_alert, c_btn = st.columns([0.96, 0.04])
     with c_alert:
         st.markdown(
             f'<div class="notify-marker-info" style="display:none;"></div>'
@@ -703,7 +773,7 @@ if st.session_state.get("notify_info"):
             st.rerun()
 
 if st.session_state.get("notify_match"):
-    c_alert, c_btn = st.columns([0.97, 0.03])
+    c_alert, c_btn = st.columns([0.96, 0.04])
     with c_alert:
         st.markdown(
             f'<div class="notify-marker-success" style="display:none;"></div>'
@@ -719,10 +789,10 @@ if st.session_state.get("notify_match"):
             st.rerun()
 
 if st.session_state.get("notify_match_warning"):
-    c_alert, c_btn = st.columns([0.97, 0.03])
+    c_alert, c_btn = st.columns([0.96, 0.04])
     with c_alert:
         st.markdown(
-            f'<div class="notify-marker-info" style="display:none;"></div>'
+            f'<div class="notify-marker-warning" style="display:none;"></div>'
             f'<div style="color:#b54708; font-size:13px; font-weight:500; line-height:1.4;">'
             f'{st.session_state["notify_match_warning"]}'
             f'</div>',
