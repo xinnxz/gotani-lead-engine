@@ -157,12 +157,21 @@ class FacebookExecutor:
         
         try:
             resp = requests.post(run_url, json=payload, timeout=30)
+            if resp.status_code == 402:
+                err_json = resp.json().get("error", {})
+                msg = err_json.get("message", "Saldo tidak mencukupi untuk menjalankan scraper.")
+                err_text = f"Saldo Apify Habis (402 Payment Required): {msg}. Silakan ganti API token di .env atau gunakan akun baru gratis di console.apify.com."
+                logger.error(err_text)
+                if progress_callback:
+                    progress_callback("Apify Error", err_text)
+                raise RuntimeError(err_text)
             resp.raise_for_status()
-        except Exception as e:
-            logger.error(f"Gagal menghubungi Apify: {e}")
+        except requests.exceptions.RequestException as e:
+            err_text = f"Gagal menghubungi Apify: {e}"
+            logger.error(err_text)
             if progress_callback:
-                progress_callback("Apify Error", f"Gagal menghubungi API Apify: {e}")
-            return []
+                progress_callback("Apify Error", err_text)
+            raise RuntimeError(err_text)
             
         run_data = resp.json().get("data", {})
         run_id = run_data.get("id")

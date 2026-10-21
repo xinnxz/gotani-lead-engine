@@ -311,6 +311,11 @@ class Pipeline:
                     f"Sukses! {raw_items_saved} raw items disimpan ke database, dan {new_leads_saved} prospek terverifikasi unik berhasil diproses AI.{extra_m}"
                 )
 
+            return {
+                "raw_items_saved": raw_items_saved,
+                "new_leads_saved": new_leads_saved,
+            }
+
         except Exception as e:
             logger.exception("Error pada pipeline.")
             db.finish_run(self.conn, run_id, status="error", error=str(e))

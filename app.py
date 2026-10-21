@@ -675,9 +675,14 @@ with st.sidebar:
                     status_box.write(f"[{datetime.now().strftime('%H:%M:%S')}] **{step_title}**: {detail_text}")
 
                 pipe = Pipeline(c, progress_callback=on_progress)
-                asyncio.run(pipe.run())
-                status_box.update(label="Pipeline Berhasil Selesai!", state="complete", expanded=False)
-                st.session_state["notify_success"] = f"Pipeline berhasil diselesaikan! Data prospek baru untuk komoditas '{c.product.name}' berhasil diekstrak dan disimpan ke database."
+                pipe_res = asyncio.run(pipe.run()) or {}
+                raw_cnt = pipe_res.get("raw_items_saved", 0)
+                lead_cnt = pipe_res.get("new_leads_saved", 0)
+                status_box.update(label="Pipeline Selesai!", state="complete", expanded=False)
+                if raw_cnt == 0:
+                    st.session_state["notify_info"] = f"Pencarian selesai untuk '{c.product.name}'. Tidak ditemukan postingan baru (seluruh data mungkin sudah ada di database atau tidak ada postingan aktif dalam 35 hari terakhir). Silakan coba kata kunci lain atau gunakan tombol 'Muat Demo Komprehensif' di sidebar."
+                else:
+                    st.session_state["notify_success"] = f"Pipeline berhasil! Ditemukan {raw_cnt} postingan mentah dan {lead_cnt} prospek terverifikasi baru untuk komoditas '{c.product.name}'."
                 time.sleep(1)
                 st.rerun()
         except Exception as e:
