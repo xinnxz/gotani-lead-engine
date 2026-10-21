@@ -8,6 +8,36 @@ from . import wilayah
 from .campaign import CampaignSpec
 
 
+# ---------- Daftar keyword untuk deteksi konten Malaysia / non-Indonesia ----------
+_MALAYSIA_KEYWORDS = [
+    # Mata uang & harga Malaysia
+    r"\bRM\s?\d", r"\bringgit\b", r"\bsen\b(?!\s+mahal)",
+    # Negeri/wilayah Malaysia
+    r"\bselangor\b", r"\bjohor\b", r"\bpahang\b", r"\bkelantan\b",
+    r"\bterengganu\b", r"\bsabah\b", r"\bsarawak\b", r"\bperak\b",
+    r"\bkedah\b", r"\bmelaka\b", r"\bnegeri sembilan\b", r"\bperlis\b",
+    r"\bputrajaya\b", r"\bpenang\b", r"\bpulau pinang\b",
+    r"\bkuala\s+lumpur\b", r"\bkuala\s+krai\b", r"\bklang\b",
+    r"\bpetaling\b", r"\bampang\b", r"\bsubang\b", r"\bcheras\b",
+    # Bahasa Melayu Malaysia (bukan Indonesia)
+    r"\b(nak|tak|boleh)\s+(jual|beli|bincang)\b",
+    r"\bhartanah\b", r"\btanah\s+banglo\b", r"\bbanglo\b",
+    r"\blot\s+tanah\b", r"\bguntung\b",
+    # Kode telepon Malaysia
+    r"\b(\+?60)\d{8,}",
+]
+_COMPILED_MY = [re.compile(p, re.IGNORECASE) for p in _MALAYSIA_KEYWORDS]
+
+
+def _is_malaysian_content(text: str) -> bool:
+    """Deteksi apakah teks mengandung indikator konten Malaysia."""
+    if not text:
+        return False
+    hits = sum(1 for p in _COMPILED_MY if p.search(text))
+    # 1+ hit sudah cukup (RM atau wilayah MY saja sudah kuat)
+    return hits >= 1
+
+
 def _age_days(posted_at: str | None, now: datetime) -> float | None:
     if not posted_at:
         return None
@@ -45,11 +75,29 @@ def relevance(listing: dict, spec: CampaignSpec, raw_text: str) -> tuple[int, li
     
     # VALIDASI TAMBAHAN: Cek apakah raw_text mengandung kata kunci NON-AGRI (pipa, besi, dll)
     _non_agri_keywords = [
+        # Bangunan & Konstruksi
         "pipa", "scaffolding", "besi", "baja", "semen", "cat ", "keramik",
+        "genteng", "bata ", "triplek", "kayu olahan", "atap ", "wiremesh",
+        # Elektronik & Kendaraan
         "elektronik", "gadget", "hp ", "laptop", "motor", "mobil",
+        "charger", "earphone", "sparepart",
+        # Fashion & Kecantikan
         "baju", "pakaian", "sepatu", "tas ", "kosmetik", "skincare",
+        "hijab", "gamis", "jersey",
+        # Properti & Real Estate
         "properti", "rumah dijual", "tanah dijual", "kost",
+        "banglo", "lot tanah", "hartanah", "kavling", "ruko ",
     ]
+    # FILTER MALAYSIA: Konten dari Malaysia = otomatis skor 0
+    if _is_malaysian_content(low):
+        why.append("0 PENALTI: konten Malaysia terdeteksi (bukan pasar Indonesia)")
+        return 0, why
+
+    # FILTER MALAYSIA: Konten dari Malaysia = otomatis skor 0
+    if _is_malaysian_content(low):
+        why.append("0 PENALTI: konten Malaysia terdeteksi (bukan pasar Indonesia)")
+        return 0, why
+
     if any(k in low for k in _non_agri_keywords):
         score -= 80
         why.append(f"-80 PENALTI: konten non-pertanian terdeteksi di teks")

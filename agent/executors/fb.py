@@ -100,7 +100,7 @@ class FacebookExecutor:
         from datetime import datetime as _dt
         _cur_year = _dt.now().year
         _year_negs = " ".join(f"-{y}" for y in range(2018, _cur_year))
-        negatives = f"-bibit -benih -pupuk -obat -loker -lowongan -resep -jus -olahan -jasa {_year_negs}"
+        negatives = f"-bibit -benih -pupuk -obat -loker -lowongan -resep -jus -olahan -jasa -ringgit -hartanah -banglo {_year_negs}"
         
         for q in queries:
             if not q.strip():

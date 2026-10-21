@@ -226,6 +226,14 @@ class Pipeline:
                         result.setdefault("flags", [])
                         if isinstance(result.get("flags"), list):
                             result["flags"].append("komoditas_tidak_ditemukan_di_teks")
+
+                    # VALIDASI NEGARA: Deteksi konten Malaysia (bukan Indonesia)
+                    from .scoring import _is_malaysian_content
+                    if _is_malaysian_content(_raw_low):
+                        result["intent"] = "irrelevant"
+                        result.setdefault("flags", [])
+                        if isinstance(result.get("flags"), list):
+                            result["flags"].append("konten_malaysia_bukan_indonesia")
                         
                     row = dict(batch[j])
                     mapping = pii_mappings[j]
