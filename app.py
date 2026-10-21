@@ -554,7 +554,7 @@ with st.sidebar:
     ]
 
     # Session defaults (kunci unik agar state tidak mental / jumping)
-    goal_options = ["Beli Pasokan (Petani)", "Cari Pembeli (Demand)"]
+    goal_options = ["Cari Petani", "Cari Pembeli"]
     if "marketplace_goal" not in st.session_state:
         st.session_state["marketplace_goal"] = goal_options[0]
 
@@ -629,7 +629,7 @@ with st.sidebar:
     # 5. Tombol Pencarian Marketplace
     if st.button("Cari Prospek", type="primary", use_container_width=True):
         cid = new_campaign_id(conn)
-        goal_val = "find_supply" if "Beli" in goal_choice else "find_demand"
+        goal_val = "find_supply" if "Petani" in goal_choice else "find_demand"
         target_entity_val = "petani / kelompok tani" if goal_val == "find_supply" else "toko buah / distributor / pengepul"
 
         spec = CampaignSpec(
@@ -656,7 +656,7 @@ with st.sidebar:
         st.session_state["draft_spec"] = spec.to_json()
         st.session_state["spec_notice"] = {
             "product": spec.product.name,
-            "goal": "Pasokan Petani" if goal_val == "find_supply" else "Permintaan Pembeli",
+            "goal": "Cari Petani" if goal_val == "find_supply" else "Permintaan Pembeli",
             "location": ", ".join(spec.location.include),
             "volume": f"{spec.volume.min:g} kg" if spec.volume.min else "Bebas",
             "mode": "Pencarian Pasar",

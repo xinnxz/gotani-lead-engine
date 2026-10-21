@@ -7,6 +7,7 @@ from .config import settings
 from .campaign import CampaignSpec
 from .planner import build_group_queries
 from .executors.fb import FacebookExecutor
+from .executors.gmaps import GoogleMapsExecutor
 from .masking import mask_text
 from .rules import extract as rules_extract
 from .extraction import llm_extract
@@ -75,6 +76,7 @@ class Pipeline:
         self.campaign = campaign
         self.conn = db.connect()
         self.fb_executor = FacebookExecutor()
+        self.gmaps_executor = GoogleMapsExecutor()
         self.llm = LLMGateway(self.conn)
         self.progress_callback = progress_callback
 
@@ -95,14 +97,30 @@ class Pipeline:
             
             raw_items_saved = 0
             
-            # 2. Eksekusi scraping untuk setiap query sekaligus (Tingkatkan kapasitas data)
-            queries_to_run = queries[:15]
-            posts = await self.fb_executor.scrape_queries(
-                queries_to_run,
-                max_posts=50,
-                progress_callback=self.progress_callback,
-                target_intent=self.campaign.target_intent,
-            )
+            # 2. Eksekusi scraping — route berdasarkan tujuan kampanye
+            if self.campaign.target_intent == "demand":
+                # DEMAND: Cari bisnis pembeli potensial di Google Maps (bukan Facebook)
+                logger.info("Kampanye DEMAND: menggunakan Google Maps executor")
+                if self.progress_callback:
+                    self.progress_callback(
+                        "Google Maps Scraper",
+                        f"Mencari bisnis pembeli potensial (toko, distributor, grosir) untuk '{self.campaign.product.name}' di Google Maps..."
+                    )
+                posts = await self.gmaps_executor.scrape_demand(
+                    product=self.campaign.product.name,
+                    locations=self.campaign.location.include,
+                    max_results=50,
+                    progress_callback=self.progress_callback,
+                )
+            else:
+                # SUPPLY: Cari petani/penjual di Facebook & web (default)
+                queries_to_run = queries[:15]
+                posts = await self.fb_executor.scrape_queries(
+                    queries_to_run,
+                    max_posts=50,
+                    progress_callback=self.progress_callback,
+                    target_intent=self.campaign.target_intent,
+                )
             
             # 3. Simpan ke database raw_items
             if self.progress_callback:
@@ -196,6 +214,26 @@ class Pipeline:
                     row = dict(batch[j])
                     mapping = pii_mappings[j]
                     raw_text = raw_texts[j]
+
+                    # Injeksi data terstruktur dari Google Maps (jika ada)
+                    gmaps_data = None
+                    for p in posts:
+                        if p.get("raw_text", "").strip() == raw_text.strip() and p.get("_gmaps_data"):
+                            gmaps_data = p["_gmaps_data"]
+                            break
+                    if gmaps_data:
+                        result.setdefault("entity_name", gmaps_data.get("business_name"))
+                        result.setdefault("intent", "demand")
+                        if not result.get("contact_phone") and gmaps_data.get("phone"):
+                            phones = [gmaps_data["phone"]]
+                        if not result.get("location_text") and gmaps_data.get("address"):
+                            result["location_text"] = gmaps_data["address"]
+                        result["_gmaps_meta"] = {
+                            "rating": gmaps_data.get("rating"),
+                            "reviews": gmaps_data.get("reviews_count"),
+                            "category": gmaps_data.get("category"),
+                            "website": gmaps_data.get("website"),
+                        }
                     
                     # Normalisasi angka
                     price = result.get("price_value")
