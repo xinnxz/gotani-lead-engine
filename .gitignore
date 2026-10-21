@@ -3,3 +3,6 @@ data/
 __pycache__/
 *.pyc
 chrome_data/
+.coverage
+.pytest_cache/
+htmlcov/
