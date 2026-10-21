@@ -922,6 +922,7 @@ with tab1:
         st.info("Belum ada data prospek yang memenuhi kriteria filter saat ini.")
     else:
         def format_display_phone(phone_raw):
+            import re
             if phone_raw is None or pd.isna(phone_raw):
                 return "-"
             p = str(phone_raw).strip()
@@ -1673,6 +1674,7 @@ with tab4:
     else:
         # Ekstraksi dan format nomor kontak faktual dari data listing atau teks postingan mentah
         def _get_raw_contact(row):
+            import re
             c = row.get("Listing_Phone")
             if pd.notna(c) and str(c).strip() and str(c).strip() != "-":
                 raw_c = str(c).strip()
