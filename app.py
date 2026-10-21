@@ -53,6 +53,12 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
     #MainMenu {visibility: hidden;}
+    /* Cegah tooltip nyangkut/freeze yang memblokir klik mouse pada tombol */
+    div[data-baseweb="tooltip"],
+    div[role="tooltip"],
+    div[data-testid="stTooltipContent"] {
+        pointer-events: none !important;
+    }
     footer {visibility: hidden;}
 
     /* Base canvas */
@@ -479,23 +485,25 @@ with st.sidebar:
     st.markdown("<div style='font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;'>Aksi Cepat</div>", unsafe_allow_html=True)
     c_btn1, c_btn2, c_btn3 = st.columns(3)
     with c_btn1:
-        if st.button("Muat Demo", help="Mengisi database dengan dataset demo komprehensif"):
+        if st.button("Muat Demo", use_container_width=True, help="Mengisi database dengan dataset demo komprehensif"):
             with st.spinner("Memuat dataset demo..."):
                 subprocess.run([sys.executable, "seed_demo.py"], cwd=str(Path(__file__).parent))
-                st.session_state["notify_success"] = "Dataset demo berhasil dimuat! 38 postingan mentah, 25 prospek terverifikasi, dan 61 match aktif siap diuji."
+                st.session_state["notify_success"] = "Dataset demo berhasil dimuat! Data petani, pembeli, dan smart pool siap diuji."
                 st.rerun()
     with c_btn2:
-        if st.button("Hapus Data", help="Mengosongkan semua catatan lead dan match"):
+        if st.button("Hapus Data", use_container_width=True, help="Mengosongkan semua catatan lead, match, dan percakapan CRM"):
             with st.spinner("Mengosongkan database..."):
-                conn.execute("DELETE FROM matches")
+                conn.execute("DELETE FROM messages")
+                conn.execute("DELETE FROM conversations")
                 conn.execute("DELETE FROM match_items")
+                conn.execute("DELETE FROM matches")
                 conn.execute("DELETE FROM listings")
                 conn.execute("DELETE FROM raw_items")
                 conn.commit()
-                st.session_state["notify_info"] = "Database berhasil dikosongkan."
+                st.session_state["notify_info"] = "Database berhasil dikosongkan sepenuhnya."
             st.rerun()
     with c_btn3:
-        if st.button("Anti-Duplikat", help="Deteksi dan bersihkan data lead ganda di database"):
+        if st.button("Anti-Duplikat", use_container_width=True, help="Deteksi dan bersihkan data lead ganda di database"):
             with st.spinner("Memeriksa duplikasi..."):
                 d_res = deduplicate_database(conn)
                 st.session_state["notify_info"] = f"Deduplikasi selesai: {d_res['duplicates_marked']} entri duplikat berhasil disembunyikan."
