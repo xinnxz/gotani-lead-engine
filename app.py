@@ -485,30 +485,38 @@ with st.sidebar:
 
     # --- Section: Quick Start ---
     st.markdown("<div style='font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;'>Aksi Cepat</div>", unsafe_allow_html=True)
-    c_btn1, c_btn2, c_btn3 = st.columns(3)
-    with c_btn1:
-        if st.button("Muat Demo", use_container_width=True, help="Mengisi database dengan dataset demo komprehensif"):
-            with st.spinner("Memuat dataset demo..."):
-                subprocess.run([sys.executable, "seed_demo.py"], cwd=str(Path(__file__).parent))
-                st.session_state["notify_success"] = "Dataset demo berhasil dimuat! Data petani, pembeli, dan smart pool siap diuji."
-                st.rerun()
+    if st.button("Muat Demo Komprehensif", use_container_width=True):
+        with st.spinner("Memuat dataset demo..."):
+            subprocess.run([sys.executable, "seed_demo.py"], cwd=str(Path(__file__).parent))
+            st.session_state["notify_success"] = "Dataset demo berhasil dimuat! Data petani, pembeli, dan smart pool siap diuji."
+            st.toast("Dataset demo berhasil dimuat!", icon="✅")
+            st.rerun()
+
+    c_btn2, c_btn3 = st.columns(2)
     with c_btn2:
-        if st.button("Hapus Data", use_container_width=True, help="Mengosongkan semua catatan lead, match, dan percakapan CRM"):
-            with st.spinner("Mengosongkan database..."):
-                conn.execute("DELETE FROM messages")
-                conn.execute("DELETE FROM conversations")
-                conn.execute("DELETE FROM match_items")
-                conn.execute("DELETE FROM matches")
-                conn.execute("DELETE FROM listings")
-                conn.execute("DELETE FROM raw_items")
-                conn.commit()
-                st.session_state["notify_info"] = "Database berhasil dikosongkan sepenuhnya."
+        if st.button("Hapus Semua Data", use_container_width=True):
+            tables = ["messages", "conversations", "match_items", "matches", "listings", "raw_items", "runs"]
+            for t in tables:
+                try:
+                    conn.execute(f"DELETE FROM {t}")
+                except Exception:
+                    pass
+            conn.commit()
+            try:
+                conn.execute("VACUUM")
+            except Exception:
+                pass
+            for k in ["spec_notice", "notify_success", "notify_info"]:
+                st.session_state.pop(k, None)
+            st.session_state["notify_success"] = "Seluruh data prospek, log scraping mentah, match, dan riwayat CRM berhasil dikosongkan total!"
+            st.toast("Database berhasil dikosongkan!", icon="🗑️")
             st.rerun()
     with c_btn3:
-        if st.button("Anti-Duplikat", use_container_width=True, help="Deteksi dan bersihkan data lead ganda di database"):
+        if st.button("Anti-Duplikat", use_container_width=True):
             with st.spinner("Memeriksa duplikasi..."):
                 d_res = deduplicate_database(conn)
                 st.session_state["notify_info"] = f"Deduplikasi selesai: {d_res['duplicates_marked']} entri duplikat berhasil disembunyikan."
+                st.toast("Pemeriksaan duplikasi selesai!", icon="🔍")
             st.rerun()
 
     st.divider()
@@ -587,7 +595,7 @@ with st.sidebar:
                 label_visibility="collapsed"
             )
         with c_tpl2:
-            if st.button("Gunakan", help="Muat template ini ke kotak JSON di bawah"):
+            if st.button("Gunakan"):
                 cid = new_campaign_id(conn)
                 tpl_spec = CampaignSpec(campaign_id=cid)
                 if "Melon" in tpl_choice:
@@ -909,6 +917,12 @@ with tab1:
         FROM listings l
         JOIN raw_items r ON l.raw_item_id = r.id
         WHERE l.relevance >= ? AND l.confidence >= ? AND l.duplicate_of IS NULL
+          AND (r.posted_at IS NULL OR r.posted_at >= date('now', '-35 days'))
+          AND r.raw_text NOT LIKE '%2020%'
+          AND r.raw_text NOT LIKE '%2021%'
+          AND r.raw_text NOT LIKE '%2022%'
+          AND r.raw_text NOT LIKE '%2023%'
+          AND r.raw_text NOT LIKE '%2024%' 
     """
     params = [min_rel, min_conf]
     if status_filter != "Semua":

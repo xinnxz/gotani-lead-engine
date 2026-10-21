@@ -143,3 +143,19 @@ class TestAccuracyAndFreshness:
         assert vol_str == "Tidak ditentukan"
         assert price_str == "Belum ditentukan"
         assert cov_str == "-"
+
+    def test_2022_posts_are_detected_and_disqualified(self, cabai_spec):
+        """Memastikan postingan dengan tanggal tahun 2022 terdeteksi dan skornya langsung 0."""
+        p1 = "Panen cabai rawit merah 12/10/2022 siap kirim WA 081234567890"
+        d1 = parse_posted_date(p1)
+        assert d1 == "2022-10-12"
+
+        listing = {
+            "product": "cabai",
+            "intent": "supply",
+            "kabupaten": "Kediri",
+            "posted_at": d1,
+        }
+        rel, why = relevance(listing, cabai_spec, p1)
+        assert rel == 0
+        assert any("KADALUWARSA" in w for w in why)

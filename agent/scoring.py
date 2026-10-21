@@ -51,17 +51,22 @@ def relevance(listing: dict, spec: CampaignSpec, raw_text: str) -> tuple[int, li
         score -= 50
         why.append(f"-50 PENALTI: produk listing ({listing.get('product') or 'tidak cocok'}) bukan {spec.product.name}")
 
-    # Penalti Usia / Kedaluwarsa (PRD F2.3: komoditas panen basi jika postingan sudah > 90 hari / berbulan-bulan lalu)
+    # Penalti Usia / Kedaluwarsa Keras (PRD F2.3: batas maksimal kesegaran panen 1 bulan / 35 hari)
     posted_date_str = listing.get("posted_at")
     if posted_date_str:
         age_days = _age_days(posted_date_str, datetime.now())
         if age_days is not None:
-            if age_days > 90:
-                score -= 60
-                why.append(f"-60 PENALTI KADALUWARSA: postingan sudah {age_days:.0f} hari lalu (> 3 bulan)")
-            elif age_days > 45:
+            if age_days > 35:
+                why.append(f"0 PENALTI KADALUWARSA: postingan sudah {age_days:.0f} hari lalu (> 35 hari)")
+                return 0, why
+            elif age_days > 20:
                 score -= 20
                 why.append(f"-20 penalti usia postingan ({age_days:.0f} hari lalu)")
+
+    # Periksa teks mentah: jika memuat tahun lampau (2010 - 2024), diskualifikasi langsung
+    if re.search(r"\b(201\d|202[0-4])\b", low):
+        why.append("0 PENALTI KADALUWARSA: teks postingan memuat tahun lampau (2018-2024)")
+        return 0, why
 
     intent_val = listing.get("intent")
     if intent_val == spec.target_intent:

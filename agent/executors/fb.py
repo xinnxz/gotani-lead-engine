@@ -38,7 +38,7 @@ class FacebookExecutor:
         
         search_queries = []
         # Negative keywords untuk membuang spam (bibit, pupuk, lowongan kerja, resep)
-        negatives = "-bibit -benih -pupuk -obat -loker -lowongan -resep -jus -olahan -jasa"
+        negatives = "-bibit -benih -pupuk -obat -loker -lowongan -resep -jus -olahan -jasa -2018 -2019 -2020 -2021 -2022 -2023 -2024"
         
         for q in queries:
             if not q.strip():
@@ -188,8 +188,28 @@ class FacebookExecutor:
                 
                 if snippet and len(snippet.strip()) > 15:
                     from ..normalize import parse_posted_date
+                    import re
+                    from datetime import datetime
                     raw_date = res.get("date") or res.get("displayedDate") or res.get("publishedAt")
                     detected_date = parse_posted_date(text, raw_date=str(raw_date) if raw_date else None)
+
+                    # Filter Kesegaran Ketat (Maksimal 1 Bulan / 35 Hari):
+                    # 1. Jika terdeteksi tanggal postingan lebih dari 35 hari lalu (misal 2022, 2023, 2024), buang seketika!
+                    if detected_date:
+                        try:
+                            p_dt = datetime.fromisoformat(detected_date)
+                            diff_days = (datetime.now() - p_dt).total_seconds() / 86400
+                            if diff_days > 35:
+                                logger.info(f"Mengabaikan postingan kedaluwarsa ({diff_days:.0f} hari lalu / {detected_date}): {text[:60]}")
+                                continue
+                        except Exception:
+                            pass
+
+                    # 2. Jika isi snippet memuat tahun lampau (2010 - 2024), buang seketika!
+                    if re.search(r"\b(201\d|202[0-4])\b", text.lower()):
+                        logger.info(f"Mengabaikan postingan memuat tahun lampau: {text[:60]}")
+                        continue
+
                     all_posts_data.append({
                         "platform": platform_tag,
                         "query": sq_term,

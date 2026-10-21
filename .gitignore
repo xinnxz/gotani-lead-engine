@@ -6,3 +6,5 @@ chrome_data/
 .coverage
 .pytest_cache/
 htmlcov/
+
+*.zip

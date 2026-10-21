@@ -301,4 +301,34 @@ def parse_posted_date(text: str | None, raw_date: str | None = None) -> str | No
             except ValueError:
                 pass
 
+    # 8. Cek tanggal numerik DD/MM/YYYY atau DD-MM-YYYY (misal: "12/10/2022", "12-10-2022")
+    m_num = re.search(r"\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\b", low)
+    if m_num:
+        d_val = int(m_num.group(1))
+        mo_val = int(m_num.group(2))
+        y_val = int(m_num.group(3))
+        if 1 <= mo_val <= 12 and 1 <= d_val <= 31:
+            try:
+                return datetime(y_val, mo_val, d_val).date().isoformat()
+            except ValueError:
+                pass
+
+    # 9. Cek format Month Year tanpa hari (misal: "Agustus 2022", "May 2022", "Okt 2023")
+    m_my = re.search(r"\b([a-z]+)\s+(\d{4})\b", low)
+    if m_my:
+        m_name = m_my.group(1)
+        y_val = int(m_my.group(2))
+        mo_val = INDONESIAN_MONTHS.get(m_name)
+        if mo_val:
+            try:
+                return datetime(y_val, mo_val, 1).date().isoformat()
+            except ValueError:
+                pass
+
+    # 10. Cek tahun lampau eksplisit (2010 - 2024) agar postingan lama selalu terdeteksi tanggalnya
+    m_old_yr = re.search(r"\b(201\d|202[0-4])\b", low)
+    if m_old_yr:
+        y_val = int(m_old_yr.group(1))
+        return f"{y_val:04d}-01-01"
+
     return None
