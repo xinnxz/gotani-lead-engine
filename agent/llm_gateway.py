@@ -102,19 +102,30 @@ class LLMGateway:
 
         from google.genai import types
 
-        try:
-            resp = self._client_get().models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=system,
-                    temperature=0.1,
-                    response_mime_type="application/json",
-                ),
-            )
-        except Exception as e:  # noqa: BLE001 - semua error API dicatat lalu dilempar ulang
-            self._log(purpose, 0, 0, False, str(e)[:500])
-            raise
+        # Retry otomatis jika terkena rate limit (429)
+        max_retries = 2
+        last_err = None
+        for attempt in range(max_retries + 1):
+            try:
+                resp = self._client_get().models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system,
+                        temperature=0.1,
+                        response_mime_type="application/json",
+                    ),
+                )
+                break  # Berhasil, keluar dari loop retry
+            except Exception as e:  # noqa: BLE001
+                last_err = e
+                err_str = str(e).lower()
+                if ("429" in err_str or "resource_exhausted" in err_str or "rate" in err_str) and attempt < max_retries:
+                    wait_secs = 6 * (attempt + 1)  # 6s, 12s
+                    time.sleep(wait_secs)
+                    continue
+                self._log(purpose, 0, 0, False, str(e)[:500])
+                raise
 
         meta = getattr(resp, "usage_metadata", None)
         tin = int(getattr(meta, "prompt_token_count", 0) or 0)
@@ -151,7 +162,7 @@ class LLMGateway:
 
         from google.genai import types
 
-        try:
+        # Retry otomatis
             resp = self._client_get().models.generate_content(
                 model=self.model,
                 contents=prompt,

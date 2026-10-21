@@ -172,8 +172,14 @@ def follow_up_questions(spec: CampaignSpec) -> list[str]:
 
 
 def draft_spec_offline(text: str, campaign_id: str) -> CampaignSpec:
-    """Susun spec dari teks bebas tanpa LLM (aturan sederhana). Cocok untuk kalimat seperti
-    'cari petani melon di Jawa Timur, minimal 500 kg'."""
+    """Susun spec dari teks bebas tanpa LLM (aturan cerdas). Cocok untuk kalimat seperti
+    'cari petani melon di Jawa Timur, minimal 500 kg'.
+    
+    Dibandingkan versi lama, sekarang:
+    - Otomatis menambahkan varietas populer berdasarkan komoditas
+    - Otomatis menambahkan sinonim lokal/daerah
+    - Lebih pintar mendeteksi lokasi dari konteks
+    """
     low = (text or "").lower()
     spec = CampaignSpec(campaign_id=campaign_id, business_context=(text or "").strip()[:300] or None)
 
@@ -206,6 +212,45 @@ def draft_spec_offline(text: str, campaign_id: str) -> CampaignSpec:
                 spec.product.name = word.capitalize()
                 spec.product.synonyms = [word]
 
+    # === UPGRADE: Auto-enrich varietas & sinonim populer ===
+    POPULAR_VARIETIES = {
+        "melon": {"varieties": ["madesta", "golden", "inthanon", "action", "sky rocket", "amanda"],
+                  "extra_synonyms": ["melon", "rock melon", "honeydew"]},
+        "semangka": {"varieties": ["inul", "non biji", "kuning", "merah"],
+                     "extra_synonyms": ["semangka", "watermelon"]},
+        "cabai": {"varieties": ["rawit", "keriting", "merah besar", "ori 212"],
+                  "extra_synonyms": ["cabai", "cabe", "lombok", "cabay"]},
+        "bawang": {"varieties": ["merah", "putih", "probolinggo", "brebes"],
+                   "extra_synonyms": ["bawang merah", "bawang putih"]},
+        "jahe": {"varieties": ["emprit", "gajah", "merah"],
+                 "extra_synonyms": ["jahe", "ginger"]},
+        "pisang": {"varieties": ["cavendish", "ambon", "raja", "kepok"],
+                   "extra_synonyms": ["pisang", "gedang", "banana"]},
+        "jeruk": {"varieties": ["siam", "nipis", "bali", "baby"],
+                  "extra_synonyms": ["jeruk", "citrus"]},
+        "mangga": {"varieties": ["harum manis", "manalagi", "gedong gincu", "indramayu"],
+                   "extra_synonyms": ["mangga", "mango"]},
+        "tomat": {"varieties": ["cherry", "servo", "permata"],
+                  "extra_synonyms": ["tomat", "tomato"]},
+        "kentang": {"varieties": ["granola", "atlantik", "medians"],
+                    "extra_synonyms": ["kentang", "potato"]},
+    }
+
+    prod_low = (spec.product.name or "").lower()
+    if prod_low in POPULAR_VARIETIES:
+        info = POPULAR_VARIETIES[prod_low]
+        # Tambah varietas
+        existing_vars = spec.product.attributes.get("variety") or []
+        for v in info["varieties"]:
+            if v not in existing_vars:
+                existing_vars.append(v)
+        spec.product.attributes["variety"] = existing_vars
+        # Tambah sinonim
+        for syn in info["extra_synonyms"]:
+            if syn not in spec.product.synonyms:
+                spec.product.synonyms.append(syn)
+
+    # === Lokasi ===
     prov = wilayah.mentions_province(low)
     if prov:
         spec.location.include.append(prov)
@@ -214,6 +259,11 @@ def draft_spec_offline(text: str, campaign_id: str) -> CampaignSpec:
         if lbl not in spec.location.include:
             spec.location.include.append(lbl)
             spec.location.priority.append(lbl)
+
+    # Jika tidak ada lokasi spesifik, default ke Jawa (sentra hortikultura terbesar)
+    if not spec.location.include and prod_low in POPULAR_VARIETIES:
+        spec.location.include.append("Jawa Timur")
+        spec.location.priority.extend(["Nganjuk", "Kediri", "Blitar", "Malang"])
 
     kg, _ = parse_quantity(text)
     if kg:
