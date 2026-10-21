@@ -96,7 +96,11 @@ class FacebookExecutor:
         
         search_queries = []
         # Negative keywords untuk membuang spam (bibit, pupuk, lowongan kerja, resep)
-        negatives = "-bibit -benih -pupuk -obat -loker -lowongan -resep -jus -olahan -jasa -2018 -2019 -2020 -2021 -2022 -2023 -2024"
+        # Dynamic: blokir semua tahun sebelum tahun ini (misal 2026 → blokir 2018-2025)
+        from datetime import datetime as _dt
+        _cur_year = _dt.now().year
+        _year_negs = " ".join(f"-{y}" for y in range(2018, _cur_year))
+        negatives = f"-bibit -benih -pupuk -obat -loker -lowongan -resep -jus -olahan -jasa {_year_negs}"
         
         for q in queries:
             if not q.strip():
@@ -276,17 +280,25 @@ class FacebookExecutor:
                             except Exception:
                                 pass
 
-                        # Jika isi snippet memuat tahun lampau (2010 - 2024), buang seketika!
-                        if re.search(r"\b(201\d|202[0-4])\b", sub_text.lower()):
+                        # Dynamic: buang snippet yang memuat tahun lampau (sebelum tahun ini)
+                        _stale_max = _cur_year - 1
+                        _stale_re = r"\b(201\d" + (f"|202[0-{_stale_max % 10}]" if _stale_max < 2030 else "|202\\d") + r")\b"
+                        if re.search(_stale_re, sub_text.lower()):
                             logger.info(f"Mengabaikan postingan memuat tahun lampau: {sub_text[:60]}")
                             continue
+
+                        # Smart fallback: jika Google tbs=qdr:m (past month) tapi tidak ada tanggal,
+                        # assign tanggal hari ini (asumsi fresh karena Google filter 1 bulan terakhir)
+                        final_date = detected_date
+                        if not final_date:
+                            final_date = _dt.now().strftime("%Y-%m-%d")
 
                         all_posts_data.append({
                             "platform": platform_tag,
                             "query": sq_term,
                             "raw_text": sub_text.strip(),
                             "url": sub["url"],
-                            "posted_at": detected_date,
+                            "posted_at": final_date,
                         })
                 
         print(f"[SELESAI] Sukses! {len(all_posts_data)} postingan sumber berhasil diambil.")

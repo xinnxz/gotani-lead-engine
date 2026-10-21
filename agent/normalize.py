@@ -325,8 +325,35 @@ def parse_posted_date(text: str | None, raw_date: str | None = None) -> str | No
             except ValueError:
                 pass
 
-    # 10. Cek tahun lampau eksplisit (2010 - 2024) agar postingan lama selalu terdeteksi tanggalnya
-    m_old_yr = re.search(r"\b(201\d|202[0-4])\b", low)
+    # 9a. Cek pola "baru saja" / "just now" / "X jam lalu" / "X menit lagu"
+    if any(p in low for p in ["baru saja", "just now", "barusan"]):
+        return now.date().isoformat()
+
+    m_jam = re.search(r"(\d+)\s*(?:jam|hours?|hrs?)\s*(?:yang\s*)?(?:lalu|ago)", low)
+    if m_jam:
+        hours = int(m_jam.group(1))
+        return (now - timedelta(hours=hours)).date().isoformat()
+
+    m_menit = re.search(r"(\d+)\s*(?:menit|minutes?|mins?)\s*(?:yang\s*)?(?:lalu|ago)", low)
+    if m_menit:
+        return now.date().isoformat()
+
+    # 9b. Cek pola relatif bahasa Inggris: "3 days ago", "1 week ago"
+    m_eng_day = re.search(r"\b(\d+)\s*(?:days?|d)\s*ago\b", low)
+    if m_eng_day:
+        days = int(m_eng_day.group(1))
+        return (now - timedelta(days=days)).date().isoformat()
+
+    m_eng_wk = re.search(r"\b(\d+)\s*(?:weeks?|wks?)\s*ago\b", low)
+    if m_eng_wk:
+        weeks = int(m_eng_wk.group(1))
+        return (now - timedelta(days=weeks * 7)).date().isoformat()
+
+    # 10. Dynamic: cek tahun lampau eksplisit (sebelum tahun ini) agar postingan lama terdeteksi
+    _cur_yr_n = now.year
+    _stale_max_n = _cur_yr_n - 1
+    _stale_re_n = r"\b(201\d" + (f"|202[0-{_stale_max_n % 10}]" if _stale_max_n < 2030 else "|202\\d") + r")\b"
+    m_old_yr = re.search(_stale_re_n, low)
     if m_old_yr:
         y_val = int(m_old_yr.group(1))
         return f"{y_val:04d}-01-01"

@@ -920,16 +920,18 @@ with tab1:
             l.score_reasons_json AS Alasan_Skor,
             l.review_status AS Review,
             l.extractor AS Extractor,
+            r.posted_at AS Tgl_Post,
             r.url AS URL
         FROM listings l
         JOIN raw_items r ON l.raw_item_id = r.id
         WHERE l.relevance >= ? AND l.confidence >= ? AND l.duplicate_of IS NULL
           AND (r.posted_at IS NULL OR r.posted_at >= date('now', '-35 days'))
-          AND r.raw_text NOT LIKE '%2020%'
-          AND r.raw_text NOT LIKE '%2021%'
-          AND r.raw_text NOT LIKE '%2022%'
-          AND r.raw_text NOT LIKE '%2023%'
-          AND r.raw_text NOT LIKE '%2024%' 
+    """
+    # Dynamic: tambahkan filter tahun stale (sebelum tahun ini)
+    _cur_yr_app = datetime.now().year
+    for _sy in range(2018, _cur_yr_app):
+        query_str += f" AND r.raw_text NOT LIKE '%{_sy}%'"
+    query_str += """
     """
     params = [min_rel, min_conf]
     if status_filter != "Semua":
@@ -998,6 +1000,21 @@ with tab1:
             return f"Rp {p:,.0f}/{u}"
 
         df_leads["Harga"] = df_leads.apply(format_harga, axis=1)
+        # Format tanggal posting (human-readable)
+        def format_tgl_post(dt_str):
+            if dt_str is None or pd.isna(dt_str) or str(dt_str).strip() in ("", "None", "nan"):
+                return "-"
+            s = str(dt_str).strip()[:10]
+            try:
+                from datetime import datetime as _dtp
+                dt = _dtp.strptime(s, "%Y-%m-%d")
+                # Format: "21 Okt 2026"
+                bulan = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"]
+                return f"{dt.day} {bulan[dt.month-1]} {dt.year}"
+            except Exception:
+                return s
+        df_leads["Tgl_Post"] = df_leads["Tgl_Post"].apply(format_tgl_post)
+
         df_leads["Nama"] = df_leads["Nama"].apply(lambda n: str(n).strip() if (n is not None and not pd.isna(n) and str(n).lower() not in ("none", "nan", "")) else "-")
         df_leads["Lokasi"] = df_leads["Lokasi"].apply(lambda l: str(l).strip() if (l is not None and not pd.isna(l) and str(l).lower() not in ("none", "nan", "")) else "-")
 
@@ -1080,7 +1097,7 @@ with tab1:
             )
 
         display_cols = [
-            "id", "Komoditas", "Kategori", "Volume", "Harga", 
+            "id", "Komoditas", "Kategori", "Volume", "Harga", "Tgl_Post", 
             "Lokasi", "Nama", "Kontak", "Chat_WA", "Rel_Score", "Conf_Score", "Review", "Label_Sumber", "URL"
         ]
         
@@ -1104,6 +1121,7 @@ with tab1:
                 "Chat_WA": st.column_config.LinkColumn("Aksi", display_text="Chat WhatsApp", width="small", help="Tautan langsung untuk chat WhatsApp. Kosong bila kontak tidak tersedia"),
                 "Rel_Score": st.column_config.ProgressColumn("Relevansi", min_value=0, max_value=100, format="%d%%", width="small"),
                 "Conf_Score": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=100, format="%d%%", width="small"),
+                "Tgl_Post": st.column_config.TextColumn("Tgl Post", width="small", help="Tanggal postingan asli ditemukan oleh Google. Maksimal 1 bulan dari sekarang."),
                 "Review": st.column_config.TextColumn("Status", width="small"),
                 "Label_Sumber": st.column_config.TextColumn("Tipe Sumber", width="small"),
                 "URL": st.column_config.LinkColumn("Tautan", display_text="Buka Tautan", width="small"),

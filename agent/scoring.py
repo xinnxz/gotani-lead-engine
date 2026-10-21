@@ -63,9 +63,12 @@ def relevance(listing: dict, spec: CampaignSpec, raw_text: str) -> tuple[int, li
                 score -= 20
                 why.append(f"-20 penalti usia postingan ({age_days:.0f} hari lalu)")
 
-    # Periksa teks mentah: jika memuat tahun lampau (2010 - 2024), diskualifikasi langsung
-    if re.search(r"\b(201\d|202[0-4])\b", low):
-        why.append("0 PENALTI KADALUWARSA: teks postingan memuat tahun lampau (2018-2024)")
+    # Dynamic: periksa teks mentah, jika memuat tahun lampau (sebelum tahun ini), diskualifikasi
+    _cur_yr = datetime.now().year
+    _stale_max_s = _cur_yr - 1
+    _stale_re_s = r"\b(201\d" + (f"|202[0-{_stale_max_s % 10}]" if _stale_max_s < 2030 else "|202\\d") + r")\b"
+    if re.search(_stale_re_s, low):
+        why.append(f"0 PENALTI KADALUWARSA: teks postingan memuat tahun lampau (sebelum {_cur_yr})")
         return 0, why
 
     intent_val = listing.get("intent")
@@ -182,6 +185,16 @@ def confidence(listing: dict, spec: CampaignSpec, platform: str, confirmations: 
     else:
         score += 10
         why.append("+10 angka wajar, tidak ada pola spam")
+
+    # Bonus: nama pemosting terdeteksi = sumber lebih kredibel
+    if listing.get("entity_name"):
+        score += 5
+        why.append("+5 nama pemosting terdeteksi")
+
+    # Bonus: lokasi terdeteksi = data terverifikasi lebih tinggi
+    if listing.get("kabupaten") or listing.get("provinsi"):
+        score += 5
+        why.append("+5 lokasi terdeteksi")
 
     # Penalti kelengkapan data komersial (jika tidak ada kontak, volume, dan harga)
     has_contact = bool(listing.get("contact_wa") or listing.get("contact_phone") or listing.get("contact_email"))
