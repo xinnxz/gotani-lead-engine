@@ -17,6 +17,58 @@ from .dedup import find_duplicate, deduplicate_database
 
 logger = logging.getLogger(__name__)
 
+def _split_merged_snippets(text: str) -> list[str]:
+    """Deteksi & pecah teks yang berisi >1 postingan Facebook gabungan dari Google.
+
+    Google Search kadang menggabungkan 2-3 snippet Facebook berbeda dalam
+    satu hasil pencarian. Tanda-tanda gabungan:
+    - Ada pola "... NamaAuthor · Tanggal" di tengah teks (awal post baru)
+    - Ada pemisah "..." yang menunjukkan potongan snippet berbeda
+
+    Jika terdeteksi gabungan, kita pecah menjadi beberapa post terpisah.
+    Jika tidak, kembalikan list berisi 1 elemen (teks asli).
+    """
+    if not text or len(text) < 50:
+        return [text]
+
+    # Pola separator yang menunjukkan batas antar-snippet
+    # Contoh: "...\nJual semangka kuning" atau "... Nandhini ..."
+    separators = [
+        r"\.\.\.[\s\n]+(?=[A-Z])",  # "..." diikuti kalimat baru
+        r"(?<=\.)\s*(?:Jual|Ready|Bismillah|Assalamualaikum|Dijual|Open|Butuh|Cari)\b",  # Kata pembuka post baru
+    ]
+
+    # Cari posisi split
+    split_positions = set()
+    for sep in separators:
+        for m in re.finditer(sep, text):
+            pos = m.start()
+            # Hanya split jika posisi cukup jauh dari awal (minimal 40 char)
+            # dan masih cukup teks setelahnya (minimal 40 char)
+            if pos > 40 and len(text) - pos > 40:
+                split_positions.add(pos)
+
+    if not split_positions:
+        return [text]
+
+    # Split teks di posisi-posisi yang ditemukan
+    positions = sorted(split_positions)
+    parts = []
+    prev = 0
+    for pos in positions:
+        chunk = text[prev:pos].strip()
+        if len(chunk) >= 30:  # Minimal 30 char agar bermakna
+            parts.append(chunk)
+        prev = pos
+    # Tambah sisa teks
+    last = text[prev:].strip()
+    if len(last) >= 30:
+        parts.append(last)
+
+    return parts if parts else [text]
+
+
+
 
 class Pipeline:
     def __init__(self, campaign: CampaignSpec, progress_callback = None):

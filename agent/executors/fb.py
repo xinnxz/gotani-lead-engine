@@ -7,6 +7,64 @@ import asyncio
 
 logger = logging.getLogger(__name__)
 
+def _split_google_snippet(title: str, snippet: str, url: str) -> list[dict]:
+    """Pecah Google Search snippet yang mengandung >1 postingan Facebook.
+
+    Google sering menggabungkan 2-3 ringkasan post FB berbeda dalam satu snippet.
+    Ini menyebabkan kontak/harga dari post orang lain tercampur ke post yang salah.
+    Solusi: Deteksi batas antar-snippet, pecah, dan simpan terpisah.
+    """
+    import re
+
+    full_text = f"{title}\n{snippet}".strip()
+
+    if not snippet or len(snippet) < 60:
+        return [{"text": full_text, "url": url}]
+
+    # Pola pemisah antar-snippet Google
+    # 1. "..." diikuti spasi/newline lalu huruf kapital = batas snippet
+    # 2. Kata pembuka khas postingan baru setelah titik
+    split_positions = []
+
+    # Pattern 1: Tiga titik "..." diikuti teks baru
+    for m in re.finditer(r"\.\.\.\s+(?=[A-Z])", snippet):
+        if m.start() > 30 and len(snippet) - m.end() > 30:
+            split_positions.append(m.end())
+
+    # Pattern 2: Kata pembuka post FB setelah titik
+    openers = r"(?:Jual|Ready|Bismillah|Assalamualaikum|Dijual|Open|Butuh|Cari|Dicari|Monggo|Hallo|Hai)"
+    for m in re.finditer(r"(?<=\.\s)" + openers + r"\b", snippet, re.IGNORECASE):
+        if m.start() > 30 and len(snippet) - m.start() > 30:
+            split_positions.append(m.start())
+
+    if not split_positions:
+        return [{"text": full_text, "url": url}]
+
+    # Pecah snippet di posisi yang ditemukan
+    split_positions = sorted(set(split_positions))
+    parts = []
+
+    # Bagian pertama: title + awal snippet (milik post asli dari URL)
+    first_snippet = snippet[:split_positions[0]].strip().rstrip(".")
+    if len(first_snippet) >= 20:
+        parts.append({"text": f"{title}\n{first_snippet}", "url": url})
+
+    # Bagian selanjutnya: snippet terpisah (post orang lain, tanpa title)
+    prev = split_positions[0]
+    for pos in split_positions[1:]:
+        chunk = snippet[prev:pos].strip()
+        if len(chunk) >= 20:
+            parts.append({"text": chunk, "url": url})
+        prev = pos
+
+    last_chunk = snippet[prev:].strip()
+    if len(last_chunk) >= 20:
+        parts.append({"text": last_chunk, "url": url})
+
+    return parts if parts else [{"text": full_text, "url": url}]
+
+
+
 class FacebookExecutor:
     """
     Eksekutor Apify untuk melakukan scraping Facebook secara profesional (Hackathon/Production).
@@ -171,8 +229,7 @@ class FacebookExecutor:
                 snippet = str(res.get("description") or "")
                 url = str(res.get("url") or "")
                 
-                # Gabungkan judul dan deskripsi sebagai teks mentah
-                text = f"{title}\n{snippet}"
+                # Teks gabungan dibuat oleh _split_google_snippet (anti-kontaminasi)
 
                 u_lower = url.lower()
 
@@ -191,32 +248,37 @@ class FacebookExecutor:
                     import re
                     from datetime import datetime
                     raw_date = res.get("date") or res.get("displayedDate") or res.get("publishedAt")
-                    detected_date = parse_posted_date(text, raw_date=str(raw_date) if raw_date else None)
 
-                    # Filter Kesegaran Ketat (Maksimal 1 Bulan / 35 Hari):
-                    # 1. Jika terdeteksi tanggal postingan lebih dari 35 hari lalu (misal 2022, 2023, 2024), buang seketika!
-                    if detected_date:
-                        try:
-                            p_dt = datetime.fromisoformat(detected_date)
-                            diff_days = (datetime.now() - p_dt).total_seconds() / 86400
-                            if diff_days > 35:
-                                logger.info(f"Mengabaikan postingan kedaluwarsa ({diff_days:.0f} hari lalu / {detected_date}): {text[:60]}")
-                                continue
-                        except Exception:
-                            pass
+                    # ANTI-KONTAMINASI: Pecah snippet gabungan menjadi post terpisah
+                    sub_posts = _split_google_snippet(title, snippet, url)
 
-                    # 2. Jika isi snippet memuat tahun lampau (2010 - 2024), buang seketika!
-                    if re.search(r"\b(201\d|202[0-4])\b", text.lower()):
-                        logger.info(f"Mengabaikan postingan memuat tahun lampau: {text[:60]}")
-                        continue
+                    for sub in sub_posts:
+                        sub_text = sub["text"]
+                        detected_date = parse_posted_date(sub_text, raw_date=str(raw_date) if raw_date else None)
 
-                    all_posts_data.append({
-                        "platform": platform_tag,
-                        "query": sq_term,
-                        "raw_text": text.strip(),
-                        "url": url,
-                        "posted_at": detected_date,
-                    })
+                        # Filter Kesegaran Ketat (Maksimal 1 Bulan / 35 Hari):
+                        if detected_date:
+                            try:
+                                p_dt = datetime.fromisoformat(detected_date)
+                                diff_days = (datetime.now() - p_dt).total_seconds() / 86400
+                                if diff_days > 35:
+                                    logger.info(f"Mengabaikan postingan kedaluwarsa ({diff_days:.0f} hari lalu / {detected_date}): {sub_text[:60]}")
+                                    continue
+                            except Exception:
+                                pass
+
+                        # Jika isi snippet memuat tahun lampau (2010 - 2024), buang seketika!
+                        if re.search(r"\b(201\d|202[0-4])\b", sub_text.lower()):
+                            logger.info(f"Mengabaikan postingan memuat tahun lampau: {sub_text[:60]}")
+                            continue
+
+                        all_posts_data.append({
+                            "platform": platform_tag,
+                            "query": sq_term,
+                            "raw_text": sub_text.strip(),
+                            "url": sub["url"],
+                            "posted_at": detected_date,
+                        })
                 
         print(f"[SELESAI] Sukses! {len(all_posts_data)} postingan sumber berhasil diambil.")
         print("="*50 + "\n")

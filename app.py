@@ -1076,7 +1076,7 @@ with tab1:
 
         display_cols = [
             "id", "Komoditas", "Kategori", "Volume", "Harga", 
-            "Lokasi", "Nama", "Kontak", "Chat_WA", "Rel_Score", "Review", "Label_Sumber", "URL"
+            "Lokasi", "Nama", "Kontak", "Chat_WA", "Rel_Score", "Conf_Score", "Review", "Label_Sumber", "URL"
         ]
         
         df_leads_display = df_leads.copy()
@@ -1098,6 +1098,7 @@ with tab1:
                 "Kontak": st.column_config.TextColumn("Kontak / No. HP", width="medium", help="Nomor telepon/WhatsApp riil hasil ekstraksi dari postingan. Tampil '-' jika postingan tidak memuat kontak"),
                 "Chat_WA": st.column_config.LinkColumn("Aksi", display_text="Chat WhatsApp", width="small", help="Tautan langsung untuk chat WhatsApp. Kosong bila kontak tidak tersedia"),
                 "Rel_Score": st.column_config.ProgressColumn("Relevansi", min_value=0, max_value=100, format="%d%%", width="small"),
+                "Conf_Score": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=100, format="%d%%", width="small"),
                 "Review": st.column_config.TextColumn("Status", width="small"),
                 "Label_Sumber": st.column_config.TextColumn("Tipe Sumber", width="small"),
                 "URL": st.column_config.LinkColumn("Tautan", display_text="Buka Tautan", width="small"),
