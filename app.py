@@ -1194,30 +1194,44 @@ with tab1:
             },
         )
 
-        with st.expander("Panel Verifikasi Reviewer", expanded=False):
-            st.caption("Verifikasi keaslian dan kelayakan prospek sebelum diteruskan ke tim Sales.")
-            rev_col1, rev_col2, rev_col3 = st.columns([1.5, 2, 2])
-            
-            with rev_col1:
-                selectable_ids = df_leads["id"].tolist()
-                target_id = st.selectbox("Pilih ID Lead", selectable_ids)
-            
-            with rev_col2:
-                review_note = st.text_input("Catatan Reviewer", placeholder="Contoh: Nomor kontak aktif, data valid")
-            
-            with rev_col3:
-                st.write("")
-                btn_c1, btn_c2 = st.columns(2)
-                with btn_c1:
-                    if st.button("Approve"):
-                        db.update_review_status(conn, target_id, "approved", review_note)
-                        st.success(f"Lead #{target_id} disetujui.")
-                        st.rerun()
-                with btn_c2:
-                    if st.button("Reject"):
-                        db.update_review_status(conn, target_id, "rejected", review_note)
-                        st.warning(f"Lead #{target_id} ditolak.")
-                        st.rerun()
+        # ---- Panel Verifikasi Lead (Approve / Reject) ----
+        st.markdown("""
+            <div style="border:1px solid #e2e8f0; border-radius:8px; padding:14px 16px; margin:10px 0; background:#f8fafc;">
+                <div style="font-size:13px; font-weight:600; color:#334155; margin-bottom:8px;">Verifikasi Lead</div>
+            </div>
+        """, unsafe_allow_html=True)
+        vr_c1, vr_c2, vr_c3, vr_c4, vr_c5 = st.columns([1.2, 2, 1, 1, 1])
+        with vr_c1:
+            selectable_ids = df_leads["id"].tolist()
+            target_id = st.selectbox("ID Lead", selectable_ids, label_visibility="collapsed")
+        with vr_c2:
+            review_note = st.text_input("Catatan", placeholder="Catatan reviewer (opsional)", label_visibility="collapsed")
+        with vr_c3:
+            if st.button("Approve", type="primary", use_container_width=True):
+                db.update_review_status(conn, target_id, "approved", review_note)
+                st.session_state["notify_success"] = f"Lead #{target_id} disetujui."
+                st.rerun()
+        with vr_c4:
+            if st.button("Reject", use_container_width=True):
+                db.update_review_status(conn, target_id, "rejected", review_note)
+                st.session_state["notify_info"] = f"Lead #{target_id} ditolak."
+                st.rerun()
+        with vr_c5:
+            # Batch: Approve semua yang confidence >= 80
+            if st.button("Auto-Approve", help="Setujui semua lead dengan confidence >= 80%", use_container_width=True):
+                high_conf_ids = df_leads[df_leads["Conf_Score"] >= 80]["id"].tolist()
+                count = 0
+                for lid in high_conf_ids:
+                    current = conn.execute("SELECT review_status FROM listings WHERE id = ?", (lid,)).fetchone()
+                    if current and current[0] == "pending":
+                        db.update_review_status(conn, lid, "approved", "Auto-approved (confidence >= 80%)")
+                        count += 1
+                if count > 0:
+                    st.session_state["notify_success"] = f"{count} lead otomatis disetujui (confidence >= 80%)."
+                    st.rerun()
+                else:
+                    st.session_state["notify_info"] = "Tidak ada lead pending dengan confidence >= 80%."
+                    st.rerun()
 
         with st.expander("Rincian Kalkulasi Skor"):
             for _, row in df_leads.iterrows():
