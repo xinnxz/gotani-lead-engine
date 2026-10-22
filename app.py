@@ -483,6 +483,122 @@ st.markdown("""
         color: #111827;
     }
 
+
+    /* CRM Status Cards */
+    .crm-status-strip {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+    .crm-status-card {
+        flex: 1;
+        background: #ffffff;
+        border: 1px solid #eaecf0;
+        border-radius: 8px;
+        padding: 12px 16px;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    }
+    .crm-status-card-title {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #475467;
+        margin-bottom: 4px;
+    }
+    .crm-status-card-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #101828;
+        line-height: 1.2;
+    }
+    .crm-status-card-sub {
+        font-size: 11px;
+        color: #64748b;
+        margin-top: 2px;
+    }
+    .crm-status-card.card-highlight {
+        border-left: 3px solid #f59e0b;
+        background-color: #fffbeb;
+    }
+    .crm-status-card.card-success {
+        border-left: 3px solid #22c55e;
+        background-color: #f0fdf4;
+    }
+
+    /* CRM Flow Guide */
+    .crm-flow-guide {
+        background: #ffffff;
+        border: 1px solid #e0e7ff;
+        border-radius: 8px;
+        padding: 20px 24px;
+        margin-bottom: 16px;
+    }
+    .crm-flow-guide h4 {
+        margin: 0 0 10px 0;
+        color: #1e40af;
+        font-size: 14px;
+    }
+    .crm-flow-guide .flow-steps {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        flex-wrap: wrap;
+    }
+    .crm-flow-guide .flow-step {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 12px;
+        color: #334155;
+        font-weight: 500;
+    }
+    .crm-flow-guide .flow-arrow {
+        font-size: 16px;
+        color: #94a3b8;
+        padding: 0 6px;
+    }
+    .crm-flow-guide .flow-step .step-num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        background: #3b82f6;
+        color: #ffffff;
+        border-radius: 50%;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    /* Chat thread improvements */
+    .chat-bubble-outbound {
+        background-color: #ecfdf3;
+        border: 1px solid #d1fadf;
+        border-radius: 8px 8px 2px 8px;
+        padding: 10px 14px;
+        margin-bottom: 8px;
+        color: #027a48;
+        font-size: 13px;
+        line-height: 1.5;
+        max-width: 85%;
+    }
+    .chat-bubble-inbound {
+        background-color: #f2f4f7;
+        border: 1px solid #eaecf0;
+        border-radius: 8px 8px 8px 2px;
+        padding: 10px 14px;
+        margin-bottom: 8px;
+        color: #344054;
+        font-size: 13px;
+        line-height: 1.5;
+        max-width: 85%;
+    }
+
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {
         background-color: #ffffff;
@@ -544,17 +660,18 @@ st.markdown("""
         background-color: #ecfdf3;
         border: 1px solid #d1fadf;
         border-radius: 8px 8px 2px 8px;
-        padding: 8px 12px;
+        padding: 10px 14px;
         margin-bottom: 8px;
         color: #027a48;
         font-size: 13px;
-        line-height: 1.4;
+        line-height: 1.5;
+        max-width: 85%;
     }
     .chat-bubble-inbound {
         background-color: #f2f4f7;
         border: 1px solid #eaecf0;
         border-radius: 8px 8px 8px 2px;
-        padding: 8px 12px;
+        padding: 10px 14px;
         margin-bottom: 8px;
         color: #344054;
         font-size: 13px;
@@ -1902,17 +2019,66 @@ with tab3:
     st.markdown("### Sales Inbox & Outreach CRM")
     st.caption("Pusat komando outreach terpersonalisasi, cadence follow-up otomatis, smart handover eskalasi, dan kepatuhan UU PDP (PRD §7.8)")
 
-    # 1. Action bar & Metrics
+    # 1. Metrics & Action bar
     s_metrics = calculate_sales_metrics(conn)
-    
-    m_top1, m_top2 = st.columns([3, 1])
-    with m_top1:
-        crm_c1, crm_c2, crm_c3, crm_c4 = st.columns(4)
-        crm_c1.metric("Total Sesi CRM", s_metrics["total_convs"], help="Jumlah seluruh sesi percakapan prospek.")
-        crm_c2.metric("Outreach Aktif", s_metrics["total_outreach"], help="Pesan yang telah dikirimkan ke lead.")
-        crm_c3.metric("Butuh Handover", s_metrics["handover_count"], help="Percakapan yang memerlukan eskalasi ke staf manusia.")
-        crm_c4.metric("Deals Won", s_metrics["won_count"], help="Transaksi yang berhasil disepakati.")
-    with m_top2:
+    _crm_total = s_metrics["total_convs"]
+    _crm_handover = s_metrics["handover_count"]
+    _crm_won = s_metrics["won_count"]
+    _crm_outreach = s_metrics["total_outreach"]
+
+    # CRM Status Strip (visual cards)
+    _ho_class = "card-highlight" if _crm_handover > 0 else ""
+    _won_class = "card-success" if _crm_won > 0 else ""
+    st.markdown(f"""
+        <div class="crm-status-strip">
+            <div class="crm-status-card">
+                <div class="crm-status-card-title">Total Percakapan</div>
+                <div class="crm-status-card-value">{_crm_total}</div>
+                <div class="crm-status-card-sub">Semua sesi CRM aktif & arsip</div>
+            </div>
+            <div class="crm-status-card">
+                <div class="crm-status-card-title">Outreach Terkirim</div>
+                <div class="crm-status-card-value">{_crm_outreach}</div>
+                <div class="crm-status-card-sub">Pesan pertama yang sudah dikirim</div>
+            </div>
+            <div class="crm-status-card {_ho_class}">
+                <div class="crm-status-card-title">Butuh Handover</div>
+                <div class="crm-status-card-value">{_crm_handover}</div>
+                <div class="crm-status-card-sub">Perlu ditangani staf manusia</div>
+            </div>
+            <div class="crm-status-card {_won_class}">
+                <div class="crm-status-card-title">Deals Won</div>
+                <div class="crm-status-card-value">{_crm_won}</div>
+                <div class="crm-status-card-sub">Transaksi berhasil disepakati</div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Empty state: Flow guide jika belum ada percakapan
+    if _crm_total == 0:
+        st.markdown("""
+            <div class="crm-flow-guide">
+                <h4>Cara Menggunakan Sales CRM</h4>
+                <div class="flow-steps">
+                    <div class="flow-step"><span class="step-num">1</span> Scraping petani di sidebar</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step"><span class="step-num">2</span> Approve lead di Tab 1</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step"><span class="step-num">3</span> Matchmaking di Tab 2</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step"><span class="step-num">4</span> Klik "Daftarkan ke CRM" pada match</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step"><span class="step-num">5</span> Kelola percakapan di sini</div>
+                </div>
+                <p style="font-size:12px; color:#64748b; margin-top:12px;">
+                    Atau klik tombol "Inisiasi Outreach Lead Baru" di bawah untuk langsung memulai percakapan dari lead yang sudah punya kontak.
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+
+    # Export button
+    _exp_c1, _exp_c2 = st.columns([3.5, 1])
+    with _exp_c2:
         df_export_crm = build_conversations_export_dataframe(conn)
         csv_crm = df_export_crm.to_csv(index=False).encode("utf-8")
         st.download_button(
@@ -1920,7 +2086,8 @@ with tab3:
             csv_crm,
             file_name=f"sales_crm_report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv",
-            help="Unduh rekapan komprehensif performa sales outreach dan riwayat interaksi."
+            help="Unduh rekapan komprehensif performa sales outreach dan riwayat interaksi.",
+            use_container_width=True,
         )
 
     # Funnel Konversi Sales (PRD §7.8 / F8.10)
@@ -2011,7 +2178,13 @@ with tab3:
     # 4. Tampilkan daftar percakapan
     conversations_list = db.list_conversations(conn, state=crm_state_filter, role=crm_role_filter)
     if not conversations_list:
-        st.info("Belum ada percakapan yang sesuai dengan filter yang dipilih.")
+        if _crm_total == 0:
+            st.info(
+                "Belum ada sesi percakapan. Mulai dengan mendaftarkan lead dari hasil matchmaking (Tab 2) "
+                "atau klik 'Inisiasi Outreach Lead Baru' di atas untuk memulai percakapan baru."
+            )
+        else:
+            st.info("Tidak ada percakapan yang sesuai dengan filter yang dipilih. Coba ubah filter status atau peran di atas.")
     else:
         st.caption(f"Menampilkan {len(conversations_list)} sesi percakapan:")
         for c in conversations_list:
