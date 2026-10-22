@@ -367,6 +367,122 @@ st.markdown("""
         justify-content: center !important;
     }
 
+
+    /* Matchmaking Stepper */
+    .match-stepper {
+        display: flex;
+        align-items: stretch;
+        gap: 0;
+        margin-bottom: 20px;
+        background: #ffffff;
+        border: 1px solid #eaecf0;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    }
+    .match-step {
+        flex: 1;
+        padding: 14px 18px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        border-right: 1px solid #eaecf0;
+    }
+    .match-step:last-child {
+        border-right: none;
+    }
+    .match-step-num {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #98a2b3;
+    }
+    .match-step-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #101828;
+        line-height: 1.3;
+    }
+    .match-step-detail {
+        font-size: 12px;
+        color: #475467;
+        line-height: 1.4;
+    }
+    .match-step.step-done {
+        background-color: #f0fdf4;
+        border-bottom: 3px solid #22c55e;
+    }
+    .match-step.step-done .match-step-num {
+        color: #16a34a;
+    }
+    .match-step.step-active {
+        background-color: #eff6ff;
+        border-bottom: 3px solid #3b82f6;
+    }
+    .match-step.step-active .match-step-num {
+        color: #2563eb;
+    }
+    .match-step.step-pending {
+        background-color: #fafafa;
+        border-bottom: 3px solid #e5e7eb;
+    }
+    .match-step-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+        width: fit-content;
+        margin-top: 2px;
+    }
+    .badge-done {
+        background-color: #dcfce7;
+        color: #15803d;
+    }
+    .badge-warning {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    .badge-empty {
+        background-color: #f3f4f6;
+        color: #6b7280;
+    }
+    .badge-count {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    /* Guide Box */
+    .match-guide-box {
+        background: #ffffff;
+        border: 1px solid #e0e7ff;
+        border-radius: 8px;
+        padding: 20px 24px;
+        margin-bottom: 16px;
+    }
+    .match-guide-box h4 {
+        margin: 0 0 12px 0;
+        color: #1e40af;
+        font-size: 15px;
+    }
+    .match-guide-box ol {
+        margin: 0;
+        padding-left: 20px;
+        color: #374151;
+        font-size: 13px;
+        line-height: 1.8;
+    }
+    .match-guide-box ol li {
+        margin-bottom: 4px;
+    }
+    .match-guide-box ol li strong {
+        color: #111827;
+    }
+
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {
         background-color: #ffffff;
@@ -1420,6 +1536,92 @@ with tab2:
     st.markdown("### Matchmaking dan Smart Pooling Engine")
     st.caption("Algoritma pencocokan dua sisi (Supply ↔ Demand) dan agregasi multi-petani terdekat (PRD §7.6)")
 
+    # --- Hitung statistik untuk stepper ---
+    _st_supply_cnt = conn.execute("SELECT COUNT(*) FROM listings WHERE intent = 'supply' AND duplicate_of IS NULL").fetchone()[0]
+    _st_demand_cnt = conn.execute("SELECT COUNT(*) FROM listings WHERE intent = 'demand' AND duplicate_of IS NULL").fetchone()[0]
+    _st_match_cnt = conn.execute("SELECT COUNT(*) FROM matches").fetchone()[0]
+    _st_approved_sup = conn.execute("SELECT COUNT(*) FROM listings WHERE intent = 'supply' AND review_status = 'approved'").fetchone()[0]
+
+    # Step 1 state
+    if _st_supply_cnt > 0:
+        _s1_class = "step-done"
+        _s1_badge_class = "badge-done"
+        _s1_badge_text = f"Ada {_st_supply_cnt} petani"
+        if _st_approved_sup > 0:
+            _s1_badge_text += f" ({_st_approved_sup} approved)"
+    else:
+        _s1_class = "step-pending"
+        _s1_badge_class = "badge-empty"
+        _s1_badge_text = "Belum ada data"
+
+    # Step 2 state
+    if _st_demand_cnt > 0:
+        _s2_class = "step-done"
+        _s2_badge_class = "badge-done"
+        _s2_badge_text = f"Ada {_st_demand_cnt} pesanan"
+    else:
+        _s2_class = "step-active" if _st_supply_cnt > 0 else "step-pending"
+        _s2_badge_class = "badge-warning" if _st_supply_cnt > 0 else "badge-empty"
+        _s2_badge_text = "Input form di bawah" if _st_supply_cnt > 0 else "Belum ada data"
+
+    # Step 3 state
+    if _st_match_cnt > 0:
+        _s3_class = "step-done"
+        _s3_badge_class = "badge-count"
+        _s3_badge_text = f"{_st_match_cnt} hasil match"
+    elif _st_supply_cnt > 0 and _st_demand_cnt > 0:
+        _s3_class = "step-active"
+        _s3_badge_class = "badge-warning"
+        _s3_badge_text = "Siap dijalankan"
+    else:
+        _s3_class = "step-pending"
+        _s3_badge_class = "badge-empty"
+        _s3_badge_text = "Menunggu data"
+
+    st.markdown(f"""
+        <div class="match-stepper">
+            <div class="match-step {_s1_class}">
+                <span class="match-step-num">Langkah 1</span>
+                <span class="match-step-title">Data Petani (Supply)</span>
+                <span class="match-step-detail">Cari petani via sidebar atau muat data demo</span>
+                <span class="match-step-badge {_s1_badge_class}">{_s1_badge_text}</span>
+            </div>
+            <div class="match-step {_s2_class}">
+                <span class="match-step-num">Langkah 2</span>
+                <span class="match-step-title">Data Pembeli (Demand)</span>
+                <span class="match-step-detail">Input pesanan pembeli lewat form di bawah</span>
+                <span class="match-step-badge {_s2_badge_class}">{_s2_badge_text}</span>
+            </div>
+            <div class="match-step {_s3_class}">
+                <span class="match-step-num">Langkah 3</span>
+                <span class="match-step-title">Jalankan Matchmaking</span>
+                <span class="match-step-detail">Hitung kecocokan dan lihat rekomendasi</span>
+                <span class="match-step-badge {_s3_badge_class}">{_s3_badge_text}</span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # --- Quick-start guide ketika belum ada data ---
+    if _st_supply_cnt == 0 and _st_demand_cnt == 0:
+        st.markdown("""
+            <div class="match-guide-box">
+                <h4>Mulai dari Mana?</h4>
+                <ol>
+                    <li><strong>Cari Petani dulu</strong> — Buka sidebar kiri, pilih komoditas (misal: durian), klik "Mulai Pipeline"</li>
+                    <li><strong>Review hasil</strong> — Di Tab "Verified Leads", approve petani yang relevan</li>
+                    <li><strong>Input pembeli</strong> — Kembali ke tab ini, isi form "Input Permintaan Pembeli Baru" di bawah</li>
+                    <li><strong>Jalankan matchmaking</strong> — Klik tombol di bawah untuk hitung kecocokan</li>
+                </ol>
+            </div>
+        """, unsafe_allow_html=True)
+
+    # --- Notifikasi matchmaking ---
+    if "notify_match" in st.session_state:
+        st.toast(st.session_state.pop("notify_match"), icon="✅")
+    if "notify_match_warning" in st.session_state:
+        st.warning(st.session_state.pop("notify_match_warning"))
+
+    # --- Action bar ---
     m_act1, m_act2, m_act3 = st.columns([2, 1.5, 1.5])
     with m_act2:
         tier_select = st.selectbox("Filter Tier", ["Semua", "outreach", "review", "ignored"], index=0, help="outreach (skor ≥80), review (50-79), ignored (<50)")
@@ -1428,41 +1630,30 @@ with tab2:
         include_pending = st.checkbox("Sertakan lead pending berskor tinggi", value=True, help="Menyertakan petani yang belum di-approve tapi relevance ≥70 dan confidence ≥60")
 
     with m_act1:
-        if st.button("Jalankan Matchmaking", type="primary", help="Hitung skor kecocokan semua order pembeli terhadap penawaran petani"):
-            c_demand_cnt = conn.execute("SELECT COUNT(*) FROM listings WHERE intent = 'demand' AND duplicate_of IS NULL").fetchone()[0]
-            c_supply_cnt = conn.execute("SELECT COUNT(*) FROM listings WHERE intent = 'supply' AND duplicate_of IS NULL").fetchone()[0]
-
-            if c_demand_cnt == 0:
-                st.session_state["notify_match_warning"] = (
-                    "Data Permintaan Pembeli (Demand) belum ada di database. "
-                    "Matchmaking memerlukan data penawaran petani (supply) DAN kebutuhan pembeli (demand). "
-                    "Silakan masukkan pesanan pembeli pada formulir 'Input Permintaan Pembeli Baru (Demand)' di bawah, "
-                    "atau klik tombol 'Muat Demo' pada sidebar."
-                )
+        _btn_disabled = (_st_supply_cnt == 0 or _st_demand_cnt == 0)
+        _btn_help = "Hitung skor kecocokan semua order pembeli terhadap penawaran petani"
+        if _btn_disabled:
+            _btn_help = "Butuh minimal 1 data supply (petani) DAN 1 data demand (pembeli) untuk menjalankan matchmaking"
+        if st.button("Jalankan Matchmaking", type="primary", help=_btn_help, disabled=_btn_disabled):
+            with st.spinner(f"Menghitung kecocokan {_st_demand_cnt} pesanan pembeli terhadap {_st_supply_cnt} penawaran petani..."):
+                m_stats = run_all_matches(conn, include_pending_high_score=include_pending)
+                if m_stats["matches_created"] == 0 and m_stats["pools_created"] == 0:
+                    st.session_state["notify_match_warning"] = (
+                        f"Kalkulasi selesai untuk {m_stats['total_demand']} permintaan pembeli dan {_st_supply_cnt} penawaran petani, "
+                        "namun belum ada pasangan yang memenuhi skor minimal (komoditas berbeda atau kriteria toleransi harga/jarak tidak terpenuhi)."
+                    )
+                else:
+                    st.session_state["notify_match"] = (
+                        f"Matchmaking selesai! Ditemukan {m_stats['matches_created']} match tunggal "
+                        f"dan {m_stats['pools_created']} smart pool dari {m_stats['total_demand']} permintaan pembeli."
+                    )
                 st.rerun()
-            elif c_supply_cnt == 0:
-                st.session_state["notify_match_warning"] = (
-                    "Data Penawaran Petani (Supply) belum ada di database. "
-                    "Silakan jalankan pipeline pencarian petani terlebih dahulu atau klik tombol 'Muat Demo' pada sidebar."
-                )
-                st.rerun()
-            else:
-                with st.spinner(f"Menghitung kecocokan {c_demand_cnt} pesanan pembeli terhadap {c_supply_cnt} penawaran petani..."):
-                    m_stats = run_all_matches(conn, include_pending_high_score=include_pending)
-                    if m_stats["matches_created"] == 0 and m_stats["pools_created"] == 0:
-                        st.session_state["notify_match_warning"] = (
-                            f"Kalkulasi selesai untuk {m_stats['total_demand']} permintaan pembeli dan {c_supply_cnt} penawaran petani, "
-                            "namun belum ada pasangan yang memenuhi skor minimal (komoditas berbeda atau kriteria toleransi harga/jarak tidak terpenuhi)."
-                        )
-                    else:
-                        st.session_state["notify_match"] = (
-                            f"Matchmaking Berhasil Dihitung! Ditemukan {m_stats['matches_created']} match tunggal "
-                            f"dan {m_stats['pools_created']} smart pool aktif dari {m_stats['total_demand']} permintaan pembeli."
-                        )
-                    st.rerun()
 
-
-    with st.expander("Input Permintaan Pembeli Baru (Demand)", expanded=False):
+    # --- Form Input Pembeli (auto-expand jika demand kosong) ---
+    _demand_form_expanded = (_st_demand_cnt == 0 and _st_supply_cnt > 0)
+    with st.expander("Input Permintaan Pembeli Baru (Demand)", expanded=_demand_form_expanded):
+        if _st_demand_cnt == 0:
+            st.info("Belum ada data pembeli. Isi form di bawah untuk menambahkan pesanan pembeli pertama.")
         st.caption("Tambahkan pesanan pembeli baru untuk langsung dipasangkan dengan petani di database.")
         with st.form("form_manual_order"):
             fo_c1, fo_c2 = st.columns(2)
@@ -1499,17 +1690,21 @@ with tab2:
     matches_list = get_matches_for_display(conn, tier_filter=tier_select)
 
     if not matches_list:
-        cur_dem = conn.execute("SELECT COUNT(*) FROM listings WHERE intent = 'demand' AND duplicate_of IS NULL").fetchone()[0]
-        cur_sup = conn.execute("SELECT COUNT(*) FROM listings WHERE intent = 'supply' AND duplicate_of IS NULL").fetchone()[0]
-        if cur_dem == 0:
+        if _st_demand_cnt == 0 and _st_supply_cnt == 0:
+            pass  # Guide box sudah ditampilkan di atas
+        elif _st_demand_cnt == 0:
             st.info(
-                f"Belum ada data permintaan pembeli (Demand: 0, Supply: {cur_sup}). "
-                "Tambahkan pesanan pembeli lewat form 'Input Permintaan Pembeli Baru' di atas atau klik 'Muat Demo' pada sidebar, "
-                "lalu klik tombol 'Jalankan Matchmaking'."
+                f"Data petani sudah ada ({_st_supply_cnt} listing). "
+                "Sekarang tambahkan pesanan pembeli lewat form di atas, lalu klik 'Jalankan Matchmaking'."
+            )
+        elif _st_supply_cnt == 0:
+            st.info(
+                f"Data pembeli sudah ada ({_st_demand_cnt} pesanan). "
+                "Jalankan 'Cari Petani' di sidebar untuk mendapatkan data supply, lalu klik 'Jalankan Matchmaking'."
             )
         else:
             st.info(
-                f"Database memiliki {cur_sup} penawaran petani dan {cur_dem} permintaan pembeli. "
+                f"Database siap: {_st_supply_cnt} petani dan {_st_demand_cnt} pembeli. "
                 "Klik tombol 'Jalankan Matchmaking' di atas untuk menghitung kecocokan."
             )
     else:
