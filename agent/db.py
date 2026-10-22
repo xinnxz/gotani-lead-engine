@@ -143,7 +143,7 @@ def update_review_status(conn: sqlite3.Connection, listing_id: int, status: str,
     """Memperbarui status review listing (pending, approved, rejected) dan mencatat waktu review."""
     cur = conn.execute(
         "UPDATE listings SET review_status=?, review_note=?, reviewed_at=? WHERE id=?",
-        (status, note, now_iso(), listing_id),
+        (status, note, now_iso(), int(listing_id)),
     )
     conn.commit()
     return cur.rowcount > 0
@@ -247,14 +247,14 @@ def create_conversation(
 
 def get_conversation(conn: sqlite3.Connection, conversation_id: int) -> sqlite3.Row | None:
     """Ambil data percakapan berdasarkan ID."""
-    return conn.execute("SELECT * FROM conversations WHERE id = ?", (conversation_id,)).fetchone()
+    return conn.execute("SELECT * FROM conversations WHERE id = ?", (int(conversation_id),)).fetchone()
 
 
 def get_conversation_by_listing(conn: sqlite3.Connection, listing_id: int) -> sqlite3.Row | None:
     """Cari percakapan aktif terakhir yang terkait dengan suatu listing."""
     return conn.execute(
         "SELECT * FROM conversations WHERE listing_id = ? ORDER BY created_at DESC LIMIT 1",
-        (listing_id,),
+        (int(listing_id),),
     ).fetchone()
 
 

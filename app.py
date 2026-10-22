@@ -1152,214 +1152,268 @@ with tab1:
             return platform or "-"
         df_leads["Sumber"] = df_leads.apply(format_sumber, axis=1)
 
-        # Header Export Row (Apify style)
-        top_c1, top_c2 = st.columns([1, 4])
-        with top_c1:
-            csv_leads = df_leads.drop(columns=["Alasan_Skor", "Atribut"], errors="ignore").to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "Export Dataset (CSV)", csv_leads,
-                file_name=f"apify_leads_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                mime="text/csv",
+        # ================= TAB 1 VIEW: REVIEW QUEUE vs TABEL DATA =================
+        pending_leads = df_leads[df_leads["Review"] == "pending"]
+        approved_count = len(df_leads[df_leads["Review"] == "approved"])
+        rejected_count = len(df_leads[df_leads["Review"] == "rejected"])
+        pending_count = len(pending_leads)
+
+        # Cek jika ada notifikasi review (toast)
+        if "review_feedback" in st.session_state:
+            st.toast(st.session_state.pop("review_feedback"))
+
+        # Switcher Mode: Kartu Review (default jika ada pending) vs Tabel Data
+        v_col1, v_col2 = st.columns([2.5, 1.5])
+        with v_col1:
+            view_mode = st.radio(
+                "Mode Tampilan",
+                ["Kartu Review (Fokus Seleksi)", "Tabel Data Lengkap"],
+                horizontal=True,
+                label_visibility="collapsed",
+                key="lead_view_mode_selection",
             )
 
         display_cols = [
             "id", "Komoditas", "Kategori", "Volume", "Harga", "Tgl_Post", 
             "Lokasi", "Nama", "Kontak", "Chat_WA", "Sumber", "Rel_Score", "Conf_Score", "Review", "URL"
         ]
-        
         df_leads_display = df_leads.copy()
         df_leads_display["Kategori"] = df_leads_display["Intent"]
         final_cols = [c for c in display_cols if c in df_leads_display.columns]
 
-        st.dataframe(
-            df_leads_display[final_cols],
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "id": st.column_config.NumberColumn("ID", width="small"),
-                "Komoditas": st.column_config.TextColumn("Komoditas", width="small"),
-                "Kategori": st.column_config.TextColumn("Kategori", width="small"),
-                "Volume": st.column_config.TextColumn("Volume", width="small", help="Volume asli dengan unit (kg, kresek, ikat, dll). Jika unit non-standar, tidak dikonversi ke kg"),
-                "Harga": st.column_config.TextColumn("Harga", width="small", help="Harga asli dengan unit per satuan sebenarnya (per kg, per kresek, per ikat, dll)"),
-                "Lokasi": st.column_config.TextColumn("Lokasi", width="medium"),
-                "Nama": st.column_config.TextColumn("Pemosting", width="medium"),
-                "Kontak": st.column_config.TextColumn("Kontak / No. HP", width="medium", help="Nomor telepon/WhatsApp riil hasil ekstraksi dari postingan. Tampil '-' jika postingan tidak memuat kontak"),
-                "Chat_WA": st.column_config.LinkColumn("Aksi", display_text="Chat WhatsApp", width="small", help="Tautan langsung untuk chat WhatsApp. Kosong bila kontak tidak tersedia"),
-                "Rel_Score": st.column_config.ProgressColumn("Relevansi", min_value=0, max_value=100, format="%d%%", width="small"),
-                "Conf_Score": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=100, format="%d%%", width="small"),
-                "Tgl_Post": st.column_config.TextColumn("Tgl Post", width="small", help="Tanggal postingan asli ditemukan oleh Google. Maksimal 1 bulan dari sekarang."),
-                "Sumber": st.column_config.TextColumn("Sumber Data", width="medium", help="Platform asal data: Google Maps (bisnis terverifikasi) atau Facebook (postingan komunitas)"),
-                "Review": st.column_config.TextColumn("Status", width="small"),
-                "URL": st.column_config.LinkColumn("Tautan", display_text="Buka Tautan", width="small"),
-            },
-        )
-
-        # ================= REVIEW QUEUE - Card-Based Lead Review =================
-        pending_leads = df_leads[df_leads["Review"] == "pending"]
-        approved_count = len(df_leads[df_leads["Review"] == "approved"])
-        rejected_count = len(df_leads[df_leads["Review"] == "rejected"])
-        pending_count = len(pending_leads)
-
-        # Statistik ringkas
-        st.markdown(f"""
-            <div style="display:flex; gap:12px; margin:12px 0 6px 0;">
-                <div style="padding:8px 16px; border-radius:6px; background:#f0fdf4; border:1px solid #bbf7d0;">
-                    <span style="font-size:12px; color:#15803d; font-weight:600;">Approved: {approved_count}</span>
+        # ----------------------------------------------------
+        # MODE 1: KARTU REVIEW (FOKUS SELEKSI CEPAT)
+        # ----------------------------------------------------
+        if view_mode == "Kartu Review (Fokus Seleksi)":
+            # Statistik ringkas
+            st.markdown(f"""
+                <div style="display:flex; gap:12px; margin:10px 0 12px 0;">
+                    <div style="padding:6px 14px; border-radius:6px; background:#f0fdf4; border:1px solid #bbf7d0;">
+                        <span style="font-size:12px; color:#15803d; font-weight:600;">Approved: {approved_count}</span>
+                    </div>
+                    <div style="padding:6px 14px; border-radius:6px; background:#fef2f2; border:1px solid #fecaca;">
+                        <span style="font-size:12px; color:#dc2626; font-weight:600;">Rejected: {rejected_count}</span>
+                    </div>
+                    <div style="padding:6px 14px; border-radius:6px; background:#fffbeb; border:1px solid #fde68a;">
+                        <span style="font-size:12px; color:#d97706; font-weight:600;">Pending: {pending_count}</span>
+                    </div>
                 </div>
-                <div style="padding:8px 16px; border-radius:6px; background:#fef2f2; border:1px solid #fecaca;">
-                    <span style="font-size:12px; color:#dc2626; font-weight:600;">Rejected: {rejected_count}</span>
-                </div>
-                <div style="padding:8px 16px; border-radius:6px; background:#fffbeb; border:1px solid #fde68a;">
-                    <span style="font-size:12px; color:#d97706; font-weight:600;">Pending: {pending_count}</span>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
-        # Batch action bar
-        ba_c1, ba_c2, ba_c3 = st.columns([1.2, 1.2, 3])
-        with ba_c1:
-            if st.button("Auto-Approve (Confidence >= 80%)", use_container_width=True, help="Setujui otomatis semua lead pending yang confidence >= 80%"):
-                high_conf_ids = pending_leads[pending_leads["Conf_Score"] >= 80]["id"].tolist()
-                count = 0
-                for lid in high_conf_ids:
-                    db.update_review_status(conn, lid, "approved", "Auto-approved (confidence >= 80%)")
-                    count += 1
-                if count > 0:
-                    st.session_state["notify_success"] = f"{count} lead otomatis disetujui."
-                else:
-                    st.session_state["notify_info"] = "Tidak ada lead pending dengan confidence >= 80%."
-                st.rerun()
-        with ba_c2:
-            if pending_count > 0:
-                if st.button("Reject Semua Skor 0", use_container_width=True, help="Tolak otomatis semua lead dengan skor relevansi 0"):
-                    zero_ids = pending_leads[pending_leads["Rel_Score"] == 0]["id"].tolist()
+            # Batch action bar
+            ba_c1, ba_c2, ba_c3 = st.columns([1.5, 1.5, 2])
+            with ba_c1:
+                if st.button("Auto-Approve (Confidence >= 80%)", use_container_width=True, help="Setujui otomatis semua lead pending dengan confidence >= 80%"):
+                    high_conf_ids = pending_leads[pending_leads["Conf_Score"] >= 80]["id"].tolist()
                     count = 0
-                    for lid in zero_ids:
-                        db.update_review_status(conn, lid, "rejected", "Auto-rejected (relevansi 0)")
+                    for lid in high_conf_ids:
+                        db.update_review_status(conn, int(lid), "approved", "Auto-approved (confidence >= 80%)")
                         count += 1
                     if count > 0:
-                        st.session_state["notify_info"] = f"{count} lead tidak relevan otomatis ditolak."
+                        st.session_state["review_feedback"] = f"{count} lead otomatis disetujui."
                     else:
-                        st.session_state["notify_info"] = "Tidak ada lead pending dengan skor 0."
+                        st.session_state["review_feedback"] = "Tidak ada lead pending dengan confidence >= 80%."
                     st.rerun()
+            with ba_c2:
+                if pending_count > 0:
+                    if st.button("Reject Semua Skor 0", use_container_width=True, help="Tolak otomatis semua lead dengan skor relevansi 0"):
+                        zero_ids = pending_leads[pending_leads["Rel_Score"] == 0]["id"].tolist()
+                        count = 0
+                        for lid in zero_ids:
+                            db.update_review_status(conn, int(lid), "rejected", "Auto-rejected (relevansi 0)")
+                            count += 1
+                        if count > 0:
+                            st.session_state["review_feedback"] = f"{count} lead tidak relevan otomatis ditolak."
+                        else:
+                            st.session_state["review_feedback"] = "Tidak ada lead pending dengan skor 0."
+                        st.rerun()
 
-        # ---- REVIEW CARD QUEUE ----
-        if pending_count > 0:
-            # Track posisi review saat ini
-            if "review_idx" not in st.session_state:
-                st.session_state["review_idx"] = 0
-            # Pastikan index valid
-            if st.session_state["review_idx"] >= pending_count:
-                st.session_state["review_idx"] = 0
+            # Kartu Review Lead
+            if pending_count > 0:
+                if "review_idx" not in st.session_state:
+                    st.session_state["review_idx"] = 0
+                if st.session_state["review_idx"] >= pending_count:
+                    st.session_state["review_idx"] = 0
 
-            idx = st.session_state["review_idx"]
-            current_lead = pending_leads.iloc[idx]
-            lead_id = current_lead["id"]
+                idx = st.session_state["review_idx"]
+                current_lead = pending_leads.iloc[idx]
+                lead_id = int(current_lead["id"])
 
-            # Progress bar review
-            total_reviewable = len(df_leads)
-            reviewed = approved_count + rejected_count
-            if total_reviewable > 0:
-                st.progress(reviewed / total_reviewable, text=f"Progress review: {reviewed}/{total_reviewable} lead sudah diverifikasi")
+                # Progress review
+                total_reviewable = len(df_leads)
+                reviewed = approved_count + rejected_count
+                if total_reviewable > 0:
+                    st.progress(reviewed / total_reviewable, text=f"Progress review: {reviewed}/{total_reviewable} prospek ({pending_count} pending tersisa)")
 
-            # --- Card Detail Lead ---
-            rel_pct = current_lead.get("Rel_Score", 0)
-            conf_pct = current_lead.get("Conf_Score", 0)
-            rel_color = "#15803d" if rel_pct >= 60 else "#d97706" if rel_pct >= 30 else "#dc2626"
-            conf_color = "#15803d" if conf_pct >= 60 else "#d97706" if conf_pct >= 30 else "#dc2626"
+                rel_pct = current_lead.get("Rel_Score", 0)
+                conf_pct = current_lead.get("Conf_Score", 0)
+                rel_color = "#15803d" if rel_pct >= 60 else "#d97706" if rel_pct >= 30 else "#dc2626"
+                conf_color = "#15803d" if conf_pct >= 60 else "#d97706" if conf_pct >= 30 else "#dc2626"
 
-            st.markdown(f"""
-                <div style="border:1px solid #e2e8f0; border-radius:12px; padding:20px 24px; margin:8px 0; background:white; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
-                        <div>
-                            <span style="font-size:11px; color:#64748b; font-weight:500;">LEAD #{lead_id}</span>
-                            <span style="margin-left:8px; padding:2px 8px; border-radius:4px; background:#fef9c3; color:#a16207; font-size:11px; font-weight:600;">PENDING REVIEW</span>
-                            <span style="margin-left:6px; font-size:11px; color:#94a3b8;">{idx + 1} dari {pending_count} pending</span>
-                        </div>
-                        <div style="display:flex; gap:12px;">
-                            <div style="text-align:center;">
-                                <div style="font-size:22px; font-weight:700; color:{rel_color}; line-height:1;">{rel_pct}%</div>
-                                <div style="font-size:10px; color:#94a3b8; font-weight:500;">Relevansi</div>
+                st.markdown(f"""
+                    <div style="border:1px solid #e2e8f0; border-radius:12px; padding:18px 22px; margin:8px 0; background:white; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                            <div>
+                                <span style="font-size:12px; color:#475569; font-weight:700;">LEAD #{lead_id}</span>
+                                <span style="margin-left:8px; padding:2px 8px; border-radius:4px; background:#fef9c3; color:#a16207; font-size:11px; font-weight:600;">PENDING REVIEW</span>
+                                <span style="margin-left:8px; font-size:12px; color:#64748b;">Antrean {idx + 1} dari {pending_count}</span>
                             </div>
-                            <div style="text-align:center;">
-                                <div style="font-size:22px; font-weight:700; color:{conf_color}; line-height:1;">{conf_pct}%</div>
-                                <div style="font-size:10px; color:#94a3b8; font-weight:500;">Confidence</div>
+                            <div style="display:flex; gap:16px;">
+                                <div style="text-align:center;">
+                                    <div style="font-size:22px; font-weight:700; color:{rel_color}; line-height:1;">{rel_pct}%</div>
+                                    <div style="font-size:10px; color:#94a3b8; font-weight:500;">Relevansi</div>
+                                </div>
+                                <div style="text-align:center;">
+                                    <div style="font-size:22px; font-weight:700; color:{conf_color}; line-height:1;">{conf_pct}%</div>
+                                    <div style="font-size:10px; color:#94a3b8; font-weight:500;">Confidence</div>
+                                </div>
                             </div>
                         </div>
+                        <div style="font-size:17px; font-weight:700; color:#0f172a; margin-bottom:8px;">
+                            {current_lead.get("Nama", "-")}
+                        </div>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px 20px; margin-bottom:10px; font-size:13px; color:#334155;">
+                            <span><b>Komoditas:</b> {current_lead.get("Komoditas", "-")}</span>
+                            <span><b>Volume:</b> {current_lead.get("Volume", "-")}</span>
+                            <span><b>Harga:</b> {current_lead.get("Harga", "-")}</span>
+                            <span><b>Lokasi:</b> {current_lead.get("Lokasi", "-")}</span>
+                            <span><b>Kontak:</b> {current_lead.get("Kontak", "-")}</span>
+                            <span><b>Tgl Post:</b> {current_lead.get("Tgl_Post", "-")}</span>
+                            <span><b>Sumber:</b> {current_lead.get("Sumber", "-")}</span>
+                        </div>
                     </div>
-                    <div style="font-size:18px; font-weight:700; color:#0f172a; margin-bottom:6px;">
-                        {current_lead.get("Nama", "-")}
+                """, unsafe_allow_html=True)
+
+                # Preview teks asli (collapsible)
+                raw_preview = conn.execute(
+                    "SELECT raw_text FROM raw_items WHERE id = (SELECT raw_item_id FROM listings WHERE id = ?)",
+                    (lead_id,)
+                ).fetchone()
+                if raw_preview:
+                    preview_text = str(raw_preview[0])[:600]
+                    with st.expander("Teks Postingan Asli", expanded=False):
+                        st.text(preview_text)
+
+                # Skor detail (collapsible)
+                raw_reasons = current_lead.get("Alasan_Skor")
+                reasons = db.loads(raw_reasons, default={})
+                if reasons and isinstance(reasons, dict):
+                    with st.expander("Detail Kalkulasi Skor", expanded=False):
+                        sc_c1, sc_c2 = st.columns(2)
+                        with sc_c1:
+                            st.markdown("**Relevansi:**")
+                            for r in reasons.get("relevance", []):
+                                st.caption(r)
+                        with sc_c2:
+                            st.markdown("**Confidence:**")
+                            for c_item in reasons.get("confidence", []):
+                                st.caption(c_item)
+
+                # Tombol aksi
+                act_c1, act_c2, act_c3, act_c4 = st.columns([1.5, 1.5, 1.5, 1])
+                with act_c1:
+                    if st.button("REJECT", key=f"rv_reject_{lead_id}", use_container_width=True,
+                                 help="Tolak lead ini — data tidak valid atau tidak relevan"):
+                        db.update_review_status(conn, lead_id, "rejected", "")
+                        st.session_state["review_feedback"] = f"Lead #{lead_id} telah ditolak."
+                        st.rerun()
+                with act_c2:
+                    if st.button("SKIP", key=f"rv_skip_{lead_id}", use_container_width=True,
+                                 help="Lewati untuk ditinjau nanti"):
+                        st.session_state["review_idx"] = (idx + 1) % max(pending_count, 1)
+                        st.rerun()
+                with act_c3:
+                    if st.button("APPROVE", key=f"rv_approve_{lead_id}", type="primary", use_container_width=True,
+                                 help="Setujui lead ini — data valid dan layak diteruskan ke Sales"):
+                        db.update_review_status(conn, lead_id, "approved", "")
+                        st.session_state["review_feedback"] = f"Lead #{lead_id} telah disetujui."
+                        st.rerun()
+                with act_c4:
+                    wa_link = current_lead.get("Chat_WA")
+                    if wa_link and str(wa_link).startswith("http"):
+                        st.markdown(f"[Chat WA]({wa_link})")
+
+                # Expander opsional untuk mengintip tabel di bawah
+                with st.expander(f"Tampilkan Tabel Seluruh Data ({len(df_leads)} Data)", expanded=False):
+                    csv_leads = df_leads.drop(columns=["Alasan_Skor", "Atribut"], errors="ignore").to_csv(index=False).encode("utf-8")
+                    st.download_button(
+                        "Export Dataset (CSV)", csv_leads,
+                        file_name=f"apify_leads_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                        mime="text/csv",
+                        key="btn_dl_csv_inside_card_mode",
+                    )
+                    st.dataframe(
+                        df_leads_display[final_cols],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+            else:
+                st.markdown("""
+                    <div style="text-align:center; padding:28px; border:1px dashed #d1d5db; border-radius:10px; background:#f9fafb; margin:14px 0;">
+                        <div style="font-size:15px; font-weight:600; color:#059669;">Semua lead yang sesuai kriteria telah diverifikasi</div>
+                        <div style="font-size:12px; color:#6b7280; margin-top:6px;">Silakan pilih mode "Tabel Data Lengkap" di atas untuk melihat seluruh riwayat atau mengekspor data.</div>
                     </div>
-                    <div style="display:flex; flex-wrap:wrap; gap:8px 20px; margin-bottom:12px; font-size:13px; color:#475569;">
-                        <span><b>Komoditas:</b> {current_lead.get("Komoditas", "-")}</span>
-                        <span><b>Volume:</b> {current_lead.get("Volume", "-")}</span>
-                        <span><b>Harga:</b> {current_lead.get("Harga", "-")}</span>
-                        <span><b>Lokasi:</b> {current_lead.get("Lokasi", "-")}</span>
-                        <span><b>Kontak:</b> {current_lead.get("Kontak", "-")}</span>
-                        <span><b>Tgl Post:</b> {current_lead.get("Tgl_Post", "-")}</span>
-                        <span><b>Sumber:</b> {current_lead.get("Sumber", "-")}</span>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
+                st.dataframe(
+                    df_leads_display[final_cols],
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
-            # Preview teks asli (dari raw_items)
-            raw_preview = conn.execute(
-                "SELECT raw_text FROM raw_items WHERE id = (SELECT raw_item_id FROM listings WHERE id = ?)",
-                (int(lead_id),)
-            ).fetchone()
-            if raw_preview:
-                preview_text = str(raw_preview[0])[:500]
-                with st.expander("Teks Postingan Asli", expanded=False):
-                    st.text(preview_text)
+        # ----------------------------------------------------
+        # MODE 2: TABEL DATA LENGKAP (GRID VIEW)
+        # ----------------------------------------------------
+        else:
+            top_c1, top_c2 = st.columns([1.5, 3.5])
+            with top_c1:
+                csv_leads = df_leads.drop(columns=["Alasan_Skor", "Atribut"], errors="ignore").to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "Export Dataset (CSV)", csv_leads,
+                    file_name=f"apify_leads_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    mime="text/csv",
+                    key="btn_dl_csv_table_mode",
+                )
 
-            # Skor detail (collapsible)
-            raw_reasons = current_lead.get("Alasan_Skor")
-            reasons = db.loads(raw_reasons, default={})
-            if reasons and isinstance(reasons, dict):
-                with st.expander("Detail Kalkulasi Skor", expanded=False):
-                    sc_c1, sc_c2 = st.columns(2)
-                    with sc_c1:
-                        st.markdown("**Relevansi:**")
-                        for r in reasons.get("relevance", []):
-                            st.caption(r)
-                    with sc_c2:
-                        st.markdown("**Confidence:**")
-                        for c_item in reasons.get("confidence", []):
-                            st.caption(c_item)
+            st.dataframe(
+                df_leads_display[final_cols],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "id": st.column_config.NumberColumn("ID", width="small"),
+                    "Komoditas": st.column_config.TextColumn("Komoditas", width="small"),
+                    "Kategori": st.column_config.TextColumn("Kategori", width="small"),
+                    "Volume": st.column_config.TextColumn("Volume", width="small"),
+                    "Harga": st.column_config.TextColumn("Harga", width="small"),
+                    "Lokasi": st.column_config.TextColumn("Lokasi", width="medium"),
+                    "Nama": st.column_config.TextColumn("Pemosting", width="medium"),
+                    "Kontak": st.column_config.TextColumn("Kontak / No. HP", width="medium"),
+                    "Chat_WA": st.column_config.LinkColumn("Aksi", display_text="Chat WA", width="small"),
+                    "Rel_Score": st.column_config.ProgressColumn("Relevansi", min_value=0, max_value=100, format="%d%%", width="small"),
+                    "Conf_Score": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=100, format="%d%%", width="small"),
+                    "Tgl_Post": st.column_config.TextColumn("Tgl Post", width="small"),
+                    "Sumber": st.column_config.TextColumn("Sumber Data", width="medium"),
+                    "Review": st.column_config.TextColumn("Status", width="small"),
+                    "URL": st.column_config.LinkColumn("Tautan", display_text="Buka Sumber", width="small"),
+                },
+            )
 
-            # ---- ACTION BUTTONS (besar, jelas) ----
-            act_c1, act_c2, act_c3, act_c4 = st.columns([1.5, 1.5, 1.5, 1])
-            with act_c1:
-                if st.button("REJECT", key=f"rv_reject_{lead_id}", use_container_width=True,
-                             help="Tolak lead ini — data tidak valid atau tidak relevan"):
-                    db.update_review_status(conn, lead_id, "rejected", "")
-                    # Advance ke lead berikutnya
-                    st.session_state["notify_info"] = f"Lead #{lead_id} ditolak."
-                    st.rerun()
-            with act_c2:
-                if st.button("SKIP", key=f"rv_skip_{lead_id}", use_container_width=True,
-                             help="Lewati untuk ditinjau nanti"):
-                    st.session_state["review_idx"] = (idx + 1) % max(pending_count, 1)
-                    st.rerun()
-            with act_c3:
-                if st.button("APPROVE", key=f"rv_approve_{lead_id}", type="primary", use_container_width=True,
-                             help="Setujui lead ini — data valid dan layak diteruskan ke Sales"):
-                    db.update_review_status(conn, lead_id, "approved", "")
-                    st.session_state["notify_success"] = f"Lead #{lead_id} disetujui."
-                    st.rerun()
-            with act_c4:
-                wa_link = current_lead.get("Chat_WA")
-                if wa_link and str(wa_link).startswith("http"):
-                    st.markdown(f"[Chat WA]({wa_link})")
-
-        elif pending_count == 0 and len(df_leads) > 0:
-            st.markdown("""
-                <div style="text-align:center; padding:24px; border:1px dashed #d1d5db; border-radius:10px; background:#f9fafb; margin:12px 0;">
-                    <div style="font-size:15px; font-weight:600; color:#059669;">Semua lead sudah diverifikasi</div>
-                    <div style="font-size:12px; color:#6b7280; margin-top:4px;">Gunakan filter "Status Verifikasi" di atas untuk melihat lead berdasarkan statusnya.</div>
-                </div>
-            """, unsafe_allow_html=True)
-
+            with st.expander("Rincian Kalkulasi Skor"):
+                for _, row in df_leads.iterrows():
+                    raw_reasons = row.get("Alasan_Skor")
+                    reasons = db.loads(raw_reasons, default={})
+                    if reasons and isinstance(reasons, dict):
+                        st.markdown(f"**Data #{row['id']}** | {row['Komoditas']} ({row['Lokasi']}) | Status: `{row['Review']}`")
+                        col_r, col_c = st.columns(2)
+                        with col_r:
+                            st.markdown("**Komponen Relevansi:**")
+                            for r in reasons.get("relevance", []):
+                                st.caption(r)
+                        with col_c:
+                            st.markdown("**Komponen Confidence:**")
+                            for c in reasons.get("confidence", []):
+                                st.caption(c)
+                        st.divider()
 
 # ================= TAB 2: MATCHMAKING & POOLING =================
 with tab2:
