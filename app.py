@@ -718,17 +718,17 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     # --- Section: Quick Start ---
-    st.markdown("<div style='font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;'>Aksi Cepat</div>", unsafe_allow_html=True)
-    if st.button("Muat Demo Komprehensif", use_container_width=True):
-        with st.spinner("Memuat dataset demo..."):
+    st.markdown("<div style='font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;'>Quick Actions</div>", unsafe_allow_html=True)
+    if st.button("Load Demo Dataset", use_container_width=True):
+        with st.spinner("Loading demo dataset..."):
             subprocess.run([sys.executable, "seed_demo.py"], cwd=str(Path(__file__).parent))
-            st.session_state["notify_success"] = "Dataset demo berhasil dimuat! Data petani, pembeli, dan smart pool siap diuji."
-            st.toast("Dataset demo berhasil dimuat!", icon="✅")
+            st.session_state["notify_success"] = "Demo dataset loaded successfully! Farmer, buyer, and smart pool data are ready to test."
+            st.toast("Demo dataset loaded!", icon="✅")
             st.rerun()
 
     c_btn2, c_btn3 = st.columns(2)
     with c_btn2:
-        if st.button("Hapus Semua Data", use_container_width=True):
+        if st.button("Reset All Data", use_container_width=True):
             tables = ["messages", "conversations", "match_items", "matches", "listings", "raw_items", "runs"]
             for t in tables:
                 try:
@@ -742,21 +742,21 @@ with st.sidebar:
                 pass
             for k in ["spec_notice", "notify_success", "notify_info"]:
                 st.session_state.pop(k, None)
-            st.session_state["notify_success"] = "Seluruh data prospek, log scraping mentah, match, dan riwayat CRM berhasil dikosongkan total!"
-            st.toast("Database berhasil dikosongkan!", icon="🗑️")
+            st.session_state["notify_success"] = "All leads, raw scraped data, matches, and CRM conversations have been cleared."
+            st.toast("Database cleared successfully!", icon="🗑️")
             st.rerun()
     with c_btn3:
-        if st.button("Anti-Duplikat", use_container_width=True):
-            with st.spinner("Memeriksa duplikasi..."):
+        if st.button("Deduplicate", use_container_width=True):
+            with st.spinner("Checking duplicates..."):
                 d_res = deduplicate_database(conn)
-                st.session_state["notify_info"] = f"Deduplikasi selesai: {d_res['duplicates_marked']} entri duplikat berhasil disembunyikan."
-                st.toast("Pemeriksaan duplikasi selesai!", icon="🔍")
+                st.session_state["notify_info"] = f"Deduplication complete: {d_res['duplicates_marked']} duplicate entries hidden."
+                st.toast("Deduplication check complete!", icon="🔍")
             st.rerun()
 
     st.divider()
 
     # --- Section: New Campaign Spec ---
-    st.markdown("<div style='font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;'>Pencarian Pasar</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;'>Marketplace Intelligence</div>", unsafe_allow_html=True)
 
     # Inisialisasi template bawaan jika belum ada
     if "draft_spec" not in st.session_state:
@@ -788,13 +788,13 @@ with st.sidebar:
     ]
 
     # Session defaults (kunci unik agar state tidak mental / jumping)
-    goal_options = ["Cari Petani", "Cari Pembeli"]
+    goal_options = ["Find Supply (Farmers)", "Find Demand (Buyers)"]
     if "marketplace_goal" not in st.session_state:
         st.session_state["marketplace_goal"] = goal_options[0]
 
     # 1. Kategori Transaksi (Radio vertikal stabil dengan key bawaan Streamlit)
     goal_choice = st.radio(
-        "Kategori Pasar",
+        "Market Category",
         options=goal_options,
         key="marketplace_goal",
         label_visibility="collapsed",
@@ -807,10 +807,10 @@ with st.sidebar:
         st.session_state["marketplace_commodity"] = commodity_display[0]
 
     selected_commodity = st.selectbox(
-        "Komoditas",
+        "Commodity",
         options=commodity_display,
         key="marketplace_commodity",
-        help="Ketik atau pilih komoditas hasil tani yang ingin dicari.",
+        help="Type or select the agricultural commodity to search.",
     )
 
     # 3. Filter Wilayah
@@ -818,62 +818,62 @@ with st.sidebar:
         st.session_state["marketplace_provinces"] = ["Jawa Timur"]
 
     selected_provinces = st.multiselect(
-        "Lokasi Wilayah",
+        "Target Regions",
         options=province_options,
         key="marketplace_provinces",
-        help="Pilih wilayah target pencarian data.",
+        help="Select regions for lead search.",
     )
 
     # 4. Filter Lanjutan (Collapsible, rapi seperti filter marketplace)
-    with st.expander("Filter Tambahan", expanded=False):
+    with st.expander("Advanced Filters", expanded=False):
         com_key = selected_commodity.lower()
         synonyms = KNOWN_COMMODITIES.get(com_key, [])
         variety_options = [s.title() for s in synonyms if s.lower() != com_key]
 
         if variety_options:
             selected_varieties = st.multiselect(
-                "Varietas Spesifik",
+                "Specific Varieties",
                 options=variety_options,
                 key=f"marketplace_var_{com_key}",
-                help="Kosongkan jika mencari semua varietas.",
+                help="Leave empty to search all varieties.",
             )
         else:
             selected_varieties = []
 
         min_volume = st.number_input(
-            "Minimal Volume (kg)",
+            "Min Volume (kg)",
             min_value=0,
             max_value=1_000_000,
             value=0,
             step=100,
             key="marketplace_min_vol",
-            help="Batas minimal volume. Isi 0 untuk tanpa batas.",
+            help="Minimum volume filter. Set 0 for no limit.",
         )
 
         max_price = st.number_input(
-            "Batas Harga Tertinggi (Rp/kg)",
+            "Max Price Limit (Rp/kg)",
             min_value=0,
             max_value=10_000_000,
             value=0,
             step=1000,
             key="marketplace_max_price",
-            help="Isi 0 jika tidak membatasi harga.",
+            help="Set 0 for no price limit.",
         )
 
         freshness_days = st.slider(
-            "Batas Kesegaran (hari)",
+            "Post Freshness (days)",
             min_value=7,
             max_value=90,
             value=30,
             step=1,
             key="marketplace_freshness",
-            help="Hanya tampilkan data dari X hari terakhir. Default: 30 hari (1 bulan).",
+            help="Only display posts from the last X days. Default: 30 days.",
         )
 
     # 5. Tombol Pencarian Marketplace
-    if st.button("Cari Prospek", type="primary", use_container_width=True):
+    if st.button("Search Leads", type="primary", use_container_width=True):
         cid = new_campaign_id(conn)
-        goal_val = "find_supply" if "Petani" in goal_choice else "find_demand"
+        goal_val = "find_supply" if "Supply" in goal_choice or "Petani" in goal_choice else "find_demand"
         target_entity_val = "petani / kelompok tani" if goal_val == "find_supply" else "toko buah / distributor / pengepul"
 
         spec = CampaignSpec(
@@ -903,16 +903,16 @@ with st.sidebar:
         st.session_state["draft_spec"] = spec.to_json()
         st.session_state["spec_notice"] = {
             "product": spec.product.name,
-            "goal": "Cari Petani" if goal_val == "find_supply" else "Permintaan Pembeli",
+            "goal": "Find Supply" if goal_val == "find_supply" else "Find Demand",
             "location": ", ".join(spec.location.include),
-            "volume": f"{spec.volume.min:g} kg" if spec.volume.min else "Bebas",
-            "mode": "Pencarian Pasar",
+            "volume": f"{spec.volume.min:g} kg" if spec.volume.min else "Any",
+            "mode": "Market Search",
             "fallback": False,
         }
 
         save_campaign(conn, spec)
         try:
-            with st.status("Menjalankan Pipeline Inteligensi Pasar...", expanded=True) as status_box:
+            with st.status("Running Market Intelligence Pipeline...", expanded=True) as status_box:
                 def on_progress(step_title: str, detail_text: str):
                     status_box.write(f"[{datetime.now().strftime('%H:%M:%S')}] **{step_title}**: {detail_text}")
 
@@ -920,24 +920,24 @@ with st.sidebar:
                 pipe_res = asyncio.run(pipe.run()) or {}
                 raw_cnt = pipe_res.get("raw_items_saved", 0)
                 lead_cnt = pipe_res.get("new_leads_saved", 0)
-                status_box.update(label="Pencarian Selesai", state="complete", expanded=False)
+                status_box.update(label="Search Complete", state="complete", expanded=False)
                 if raw_cnt == 0:
-                    st.session_state["notify_info"] = f"Pencarian selesai untuk '{spec.product.name}'. Tidak ditemukan postingan baru dalam 35 hari terakhir. Silakan gunakan tombol 'Muat Demo Komprehensif' di menu database untuk melihat simulasi lengkap."
+                    st.session_state["notify_info"] = f"Search completed for '{spec.product.name}'. No new posts found within 35 days. Click 'Load Demo Dataset' to inspect simulated leads."
                 else:
-                    st.session_state["notify_success"] = f"Pencarian berhasil. Ditemukan {raw_cnt} postingan mentah dan {lead_cnt} prospek terverifikasi untuk '{spec.product.name}'."
+                    st.session_state["notify_success"] = f"Search successful. Found {raw_cnt} raw posts and {lead_cnt} verified leads for '{spec.product.name}'."
                 time.sleep(1)
                 st.rerun()
         except Exception as e:
-            st.error(f"Kesalahan pada eksekusi pipeline: {e}")
+            st.error(f"Pipeline execution error: {e}")
 
     # Indikator ringkas spesifikasi aktif
     notice = st.session_state.get("spec_notice")
     if notice:
         st.markdown(f"""
         <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px; margin-top:8px; margin-bottom:8px; font-size:11px; color:#334155; line-height:1.5;">
-            <div style="font-weight:600; color:#0f172a; margin-bottom:2px;">Filter Aktif:</div>
-            Komoditas: <b>{notice['product']}</b> ({notice['goal']})<br>
-            Wilayah: {notice['location']} | Min. {notice['volume']}
+            <div style="font-weight:600; color:#0f172a; margin-bottom:2px;">Active Filter:</div>
+            Commodity: <b>{notice['product']}</b> ({notice['goal']})<br>
+            Regions: {notice['location']} | Min. {notice['volume']}
         </div>
         """, unsafe_allow_html=True)
 
@@ -945,44 +945,44 @@ with st.sidebar:
     st.divider()
     handoff_flag = Path("./data/HANDOFF_WAITING")
     if handoff_flag.exists():
-        st.error("Intervensi Verifikasi Diperlukan")
+        st.error("Manual Verification Required")
         st.caption(handoff_flag.read_text(encoding="utf-8"))
-        if st.button("Lanjutkan Sistem"):
+        if st.button("Resume System"):
             handoff_flag.unlink(missing_ok=True)
-            st.success("Konfirmasi diterima, sistem dilanjutkan.")
+            st.success("Confirmation received, system resumed.")
             st.rerun()
 
     # --- Section: Inbound Call Assistant (Caller ID) ---
     st.markdown("<div style='font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;'>Inbound Call Assistant</div>", unsafe_allow_html=True)
-    st.caption("Pencarian instan data profil penelepon untuk sales.")
-    caller_input = st.text_input("Nomor Telepon", placeholder="Contoh: 081234567890", key="side_caller_phone", label_visibility="collapsed")
+    st.caption("Instant caller intelligence and profile lookup for sales.")
+    caller_input = st.text_input("Phone Number", placeholder="e.g. 081234567890", key="side_caller_phone", label_visibility="collapsed")
     if caller_input:
         caller_res = lookup_caller(conn, caller_input)
         if not caller_res:
-            st.warning("Format nomor telepon tidak valid.")
+            st.warning("Invalid phone number format.")
         elif not caller_res.get("found"):
             if caller_res.get("is_opted_out"):
-                st.error("⛔ DNC / OPT-OUT: Nomor ini meminta tidak dihubungi!")
+                st.error("⛔ DNC / OPT-OUT: This contact requested Do-Not-Contact!")
             st.info(caller_res.get("message"))
-            with st.expander("Panduan Bicara (Kontak Baru)", expanded=True):
+            with st.expander("Talking Points (New Contact)", expanded=True):
                 for p in caller_res["talking_points"]:
                     st.markdown(f"- {p}")
         else:
             if caller_res.get("is_opted_out"):
-                st.error("⛔ DNC / OPT-OUT: Nomor ini tercatat di registri supresi!")
+                st.error("⛔ DNC / OPT-OUT: This number is listed in suppression registry!")
             
             c_info = caller_res.get("conversation")
             st.success(f"{caller_res['name']} ({caller_res['role']})")
-            st.caption(f"Komoditas: {caller_res['product']} | Lokasi: {caller_res['location']}")
+            st.caption(f"Commodity: {caller_res['product']} | Location: {caller_res['location']}")
             
             if c_info:
                 c_st = c_info.get("state", "").upper()
                 if c_info.get("state") == "handover_pending":
                     st.error(f"🚨 CRM: HANDOVER PENDING · {c_info.get('summary_text', '')}")
                 else:
-                    st.info(f"CRM Status: `{c_st}` · {c_info.get('summary_text') or 'Percakapan tercatat'}")
+                    st.info(f"CRM Status: `{c_st}` · {c_info.get('summary_text') or 'Conversation recorded'}")
 
-            with st.expander("Panduan Bicara Penelepon", expanded=True):
+            with st.expander("Caller Talking Points", expanded=True):
                 for pt in caller_res["talking_points"]:
                     st.markdown(f"- {pt}")
 
@@ -1045,16 +1045,16 @@ st.markdown(f"""
             <span class="apify-pill apify-pill-success">
                 Succeeded
             </span>
-            <span style="font-size:13px; font-weight:600; color:#101828;">Dataset Siap</span>
+            <span style="font-size:13px; font-weight:600; color:#101828;">Dataset Ready</span>
             <span class="apify-meta-item">Total Posts: <b>{total_raw}</b></span>
             <span class="apify-meta-item">Valid Leads: <b>{total_leads}</b></span>
             <span class="apify-meta-item">Matches: <b>{total_matches}</b></span>
             <span class="apify-meta-item">CRM Convs: <b>{total_convs}</b></span>
-            <span class="apify-meta-item">Biaya: <b>${usage['cost_usd']:.3f}</b></span>
-            <span class="apify-meta-item">Waktu: <b>{last_run_time}</b></span>
+            <span class="apify-meta-item">Cost: <b>${usage['cost_usd']:.3f}</b></span>
+            <span class="apify-meta-item">Time: <b>{last_run_time}</b></span>
         </div>
         <div>
-            <span style="font-size:12px; color:#0284c7; font-weight:600;">Status Operasional Normal</span>
+            <span style="font-size:12px; color:#0284c7; font-weight:600;">Status: Operational Normal</span>
         </div>
     </div>
 """, unsafe_allow_html=True)
@@ -1072,7 +1072,7 @@ if st.session_state.get("notify_success"):
         )
     with c_btn:
         st.markdown('<div class="notify-close-marker" style="display:none;"></div>', unsafe_allow_html=True)
-        if st.button("✕", key="btn_close_notify_success", help="Tutup notifikasi"):
+        if st.button("✕", key="btn_close_notify_success", help="Dismiss notification"):
             del st.session_state["notify_success"]
             st.rerun()
 
@@ -1088,7 +1088,7 @@ if st.session_state.get("notify_info"):
         )
     with c_btn:
         st.markdown('<div class="notify-close-marker" style="display:none;"></div>', unsafe_allow_html=True)
-        if st.button("✕", key="btn_close_notify_info", help="Tutup notifikasi"):
+        if st.button("✕", key="btn_close_notify_info", help="Dismiss notification"):
             del st.session_state["notify_info"]
             st.rerun()
 
@@ -1104,7 +1104,7 @@ if st.session_state.get("notify_match"):
         )
     with c_btn:
         st.markdown('<div class="notify-close-marker" style="display:none;"></div>', unsafe_allow_html=True)
-        if st.button("✕", key="btn_close_notify_match_global", help="Tutup notifikasi"):
+        if st.button("✕", key="btn_close_notify_match_global", help="Dismiss notification"):
             del st.session_state["notify_match"]
             st.rerun()
 
@@ -1120,17 +1120,17 @@ if st.session_state.get("notify_match_warning"):
         )
     with c_btn:
         st.markdown('<div class="notify-close-marker" style="display:none;"></div>', unsafe_allow_html=True)
-        if st.button("✕", key="btn_close_notify_match_warn", help="Tutup notifikasi"):
+        if st.button("✕", key="btn_close_notify_match_warn", help="Dismiss notification"):
             del st.session_state["notify_match_warning"]
             st.rerun()
 
 # 3. Metric Summary Cards (Apify Dashboard Widget Style)
 col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
-col_m1.metric("Raw Posts", f"{total_raw:,}", help="Jumlah postingan yang tersimpan dari penelusuran Google Search Scraper.")
-col_m2.metric("Valid Leads", f"{total_leads:,}", help="Jumlah data lead yang berhasil diekstrak dan dinormalisasi.")
-col_m3.metric("High Conf", f"{high_conf:,}", help="Prospek terverifikasi dengan tingkat keyakinan data ≥ 80%.")
-col_m4.metric("Matches", f"{total_matches:,}", help="Jumlah rekomendasi kecocokan pasokan dan permintaan yang teridentifikasi.")
-col_m5.metric("Sales CRM", f"{total_convs:,}", help="Jumlah sesi percakapan prospek aktif di Sales CRM Fase 3.")
+col_m1.metric("Raw Posts", f"{total_raw:,}", help="Total raw posts scraped from Google Search Scraper.")
+col_m2.metric("Valid Leads", f"{total_leads:,}", help="Total validated and normalized lead profiles.")
+col_m3.metric("High Conf", f"{high_conf:,}", help="Verified leads with confidence score ≥ 80%.")
+col_m4.metric("Matches", f"{total_matches:,}", help="Identified supply and demand matchmaking recommendations.")
+col_m5.metric("Sales CRM", f"{total_convs:,}", help="Active conversation threads in Sales CRM.")
 
 st.write("") # Spacer
 
@@ -1140,7 +1140,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     f"Matchmaking & Pooling ({total_matches})",
     f"Sales Inbox CRM ({total_convs})",
     f"Raw Data Log ({total_raw})",
-    "Riwayat Kampanye",
+    "Campaign History",
 ])
 
 
@@ -1148,14 +1148,14 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     fc1, fc2, fc3, fc4 = st.columns([1.5, 1.5, 1, 1])
     with fc1:
-        min_rel = st.slider("Batas Minimum Relevansi", 0, 100, 65, 5)
+        min_rel = st.slider("Min Relevance Score", 0, 100, 65, 5)
     with fc2:
-        min_conf = st.slider("Batas Minimum Confidence", 0, 100, 50, 5)
+        min_conf = st.slider("Min Confidence Score", 0, 100, 50, 5)
     with fc3:
-        status_filter = st.selectbox("Status Verifikasi", ["Semua", "pending", "approved", "rejected"], index=0)
+        status_filter = st.selectbox("Review Status", ["All", "pending", "approved", "rejected"], index=0)
     with fc4:
-        platform_filter = st.selectbox("Sumber Data", ["Semua", "Google Maps", "Facebook"], index=0)
-    st.caption("Menampilkan prospek terverifikasi berkualitas tinggi (Relevansi ≥ 65%, Confidence ≥ 50% sesuai PRD §7.5). Geser slider ke 0 jika ingin meninjau seluruh data mentah.")
+        platform_filter = st.selectbox("Data Source", ["All", "Google Maps", "Facebook"], index=0)
+    st.caption("Displaying high-quality verified leads (Relevance ≥ 65%, Confidence ≥ 50%). Move sliders to 0 to inspect all raw records.")
 
     query_str = """
         SELECT
@@ -1192,7 +1192,7 @@ with tab1:
     """
     _fd_val = freshness_days if 'freshness_days' in locals() else 30
     params = [min_rel, min_conf, str(_fd_val)]
-    if status_filter != "Semua":
+    if status_filter != "All" and status_filter != "Semua":
         query_str += " AND l.review_status = ?"
         params.append(status_filter)
     if platform_filter == "Google Maps":
@@ -1204,7 +1204,7 @@ with tab1:
     df_leads = pd.read_sql_query(query_str, conn, params=tuple(params))
 
     if df_leads.empty:
-        st.info("Belum ada data prospek yang memenuhi kriteria filter saat ini.")
+        st.info("No leads currently match the active filter criteria.")
     else:
         def format_display_phone(phone_raw):
             import re
@@ -1294,7 +1294,7 @@ with tab1:
             raw_loc = row.get("Lokasi")
             loc_val = str(raw_loc).strip() if (raw_loc and raw_loc != "-") else None
             
-            raw_prod = row.get("Komoditas")
+            raw_prod = row.get("Commodity")
             prod_val = str(raw_prod).strip() if (raw_prod is not None and not pd.isna(raw_prod)) else "hasil tani"
             
             raw_vol = row.get("Volume_Kg")
@@ -1399,15 +1399,15 @@ with tab1:
         v_col1, v_col2 = st.columns([2.5, 1.5])
         with v_col1:
             view_mode = st.radio(
-                "Mode Tampilan",
-                ["Kartu Review (Fokus Seleksi)", "Tabel Data Lengkap"],
+                "View Mode",
+                ["Review Queue (Card Focus)", "Full Data Table"],
                 horizontal=True,
                 label_visibility="collapsed",
                 key="lead_view_mode_selection",
             )
 
         display_cols = [
-            "id", "Komoditas", "Kategori", "Volume", "Harga", "Tgl_Post", 
+            "id", "Commodity", "Kategori", "Volume", "Harga", "Tgl_Post", 
             "Lokasi", "Nama", "Kontak", "Chat_WA", "Sumber", "Rel_Score", "Conf_Score", "Review", "URL"
         ]
         df_leads_display = df_leads.copy()
@@ -1417,7 +1417,7 @@ with tab1:
         # ----------------------------------------------------
         # MODE 1: KARTU REVIEW (FOKUS SELEKSI CEPAT)
         # ----------------------------------------------------
-        if view_mode == "Kartu Review (Fokus Seleksi)":
+        if view_mode in ["Review Queue (Card Focus)", "Kartu Review (Fokus Seleksi)"]:
             # Statistik ringkas
             st.markdown(f"""
                 <div style="display:flex; gap:12px; margin:10px 0 12px 0;">
@@ -1436,29 +1436,29 @@ with tab1:
             # Batch action bar
             ba_c1, ba_c2, ba_c3 = st.columns([1.5, 1.5, 2])
             with ba_c1:
-                if st.button("Auto-Approve (Confidence >= 80%)", use_container_width=True, help="Setujui otomatis semua lead pending dengan confidence >= 80%"):
+                if st.button("Auto-Approve (Confidence ≥ 80%)", use_container_width=True, help="Automatically approve all pending leads with confidence ≥ 80%"):
                     high_conf_ids = pending_leads[pending_leads["Conf_Score"] >= 80]["id"].tolist()
                     count = 0
                     for lid in high_conf_ids:
                         db.update_review_status(conn, int(lid), "approved", "Auto-approved (confidence >= 80%)")
                         count += 1
                     if count > 0:
-                        st.session_state["review_feedback"] = f"{count} lead otomatis disetujui."
+                        st.session_state["review_feedback"] = f"{count} leads auto-approved."
                     else:
-                        st.session_state["review_feedback"] = "Tidak ada lead pending dengan confidence >= 80%."
+                        st.session_state["review_feedback"] = "No pending leads with confidence ≥ 80% found."
                     st.rerun()
             with ba_c2:
                 if pending_count > 0:
-                    if st.button("Reject Semua Skor 0", use_container_width=True, help="Tolak otomatis semua lead dengan skor relevansi 0"):
+                    if st.button("Reject All Score 0", use_container_width=True, help="Automatically reject all leads with relevance score 0"):
                         zero_ids = pending_leads[pending_leads["Rel_Score"] == 0]["id"].tolist()
                         count = 0
                         for lid in zero_ids:
                             db.update_review_status(conn, int(lid), "rejected", "Auto-rejected (relevansi 0)")
                             count += 1
                         if count > 0:
-                            st.session_state["review_feedback"] = f"{count} lead tidak relevan otomatis ditolak."
+                            st.session_state["review_feedback"] = f"{count} irrelevant leads auto-rejected."
                         else:
-                            st.session_state["review_feedback"] = "Tidak ada lead pending dengan skor 0."
+                            st.session_state["review_feedback"] = "No pending leads with score 0 found."
                         st.rerun()
 
             # Kartu Review Lead
@@ -1476,7 +1476,7 @@ with tab1:
                 total_reviewable = len(df_leads)
                 reviewed = approved_count + rejected_count
                 if total_reviewable > 0:
-                    st.progress(reviewed / total_reviewable, text=f"Progress review: {reviewed}/{total_reviewable} prospek ({pending_count} pending tersisa)")
+                    st.progress(reviewed / total_reviewable, text=f"Review Progress: {reviewed}/{total_reviewable} leads ({pending_count} pending remaining)")
 
                 rel_pct = current_lead.get("Rel_Score", 0)
                 conf_pct = current_lead.get("Conf_Score", 0)
@@ -1494,7 +1494,7 @@ with tab1:
                             <div style="display:flex; gap:16px;">
                                 <div style="text-align:center;">
                                     <div style="font-size:22px; font-weight:700; color:{rel_color}; line-height:1;">{rel_pct}%</div>
-                                    <div style="font-size:10px; color:#94a3b8; font-weight:500;">Relevansi</div>
+                                    <div style="font-size:10px; color:#94a3b8; font-weight:500;">Relevance</div>
                                 </div>
                                 <div style="text-align:center;">
                                     <div style="font-size:22px; font-weight:700; color:{conf_color}; line-height:1;">{conf_pct}%</div>
@@ -1506,13 +1506,13 @@ with tab1:
                             {current_lead.get("Nama", "-")}
                         </div>
                         <div style="display:flex; flex-wrap:wrap; gap:8px 20px; margin-bottom:10px; font-size:13px; color:#334155;">
-                            <span><b>Komoditas:</b> {current_lead.get("Komoditas", "-")}</span>
+                            <span><b>Commodity:</b> {current_lead.get("Commodity", "-")}</span>
                             <span><b>Volume:</b> {current_lead.get("Volume", "-")}</span>
-                            <span><b>Harga:</b> {current_lead.get("Harga", "-")}</span>
-                            <span><b>Lokasi:</b> {current_lead.get("Lokasi", "-")}</span>
-                            <span><b>Kontak:</b> {current_lead.get("Kontak", "-")}</span>
-                            <span><b>Tgl Post:</b> {current_lead.get("Tgl_Post", "-")}</span>
-                            <span><b>Sumber:</b> {current_lead.get("Sumber", "-")}</span>
+                            <span><b>Price:</b> {current_lead.get("Harga", "-")}</span>
+                            <span><b>Location:</b> {current_lead.get("Lokasi", "-")}</span>
+                            <span><b>Contact:</b> {current_lead.get("Kontak", "-")}</span>
+                            <span><b>Posted Date:</b> {current_lead.get("Tgl_Post", "-")}</span>
+                            <span><b>Source:</b> {current_lead.get("Sumber", "-")}</span>
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
@@ -1524,21 +1524,21 @@ with tab1:
                 ).fetchone()
                 if raw_preview:
                     preview_text = str(raw_preview[0])[:600]
-                    with st.expander("Teks Postingan Asli", expanded=False):
+                    with st.expander("Original Post Content", expanded=False):
                         st.text(preview_text)
 
                 # Skor detail (collapsible)
                 raw_reasons = current_lead.get("Alasan_Skor")
                 reasons = db.loads(raw_reasons, default={})
                 if reasons and isinstance(reasons, dict):
-                    with st.expander("Detail Kalkulasi Skor", expanded=False):
+                    with st.expander("Score Breakdown Details", expanded=False):
                         sc_c1, sc_c2 = st.columns(2)
                         with sc_c1:
-                            st.markdown("**Relevansi:**")
+                            st.markdown("**Relevance Factors:**")
                             for r in reasons.get("relevance", []):
                                 st.caption(r)
                         with sc_c2:
-                            st.markdown("**Confidence:**")
+                            st.markdown("**Confidence Factors:**")
                             for c_item in reasons.get("confidence", []):
                                 st.caption(c_item)
 
@@ -1546,20 +1546,20 @@ with tab1:
                 act_c1, act_c2, act_c3, act_c4 = st.columns([1.5, 1.5, 1.5, 1])
                 with act_c1:
                     if st.button("REJECT", key=f"rv_reject_{lead_id}", use_container_width=True,
-                                 help="Tolak lead ini — data tidak valid atau tidak relevan"):
+                                 help="Reject lead — invalid or irrelevant data"):
                         db.update_review_status(conn, lead_id, "rejected", "")
-                        st.session_state["review_feedback"] = f"Lead #{lead_id} telah ditolak."
+                        st.session_state["review_feedback"] = f"Lead #{lead_id} rejected."
                         st.rerun()
                 with act_c2:
                     if st.button("SKIP", key=f"rv_skip_{lead_id}", use_container_width=True,
-                                 help="Lewati untuk ditinjau nanti"):
+                                 help="Skip to review later"):
                         st.session_state["review_idx"] = (idx + 1) % max(pending_count, 1)
                         st.rerun()
                 with act_c3:
                     if st.button("APPROVE", key=f"rv_approve_{lead_id}", type="primary", use_container_width=True,
-                                 help="Setujui lead ini — data valid dan layak diteruskan ke Sales"):
+                                 help="Approve lead — verified data ready for sales"):
                         db.update_review_status(conn, lead_id, "approved", "")
-                        st.session_state["review_feedback"] = f"Lead #{lead_id} telah disetujui."
+                        st.session_state["review_feedback"] = f"Lead #{lead_id} approved."
                         st.rerun()
                 with act_c4:
                     wa_link = current_lead.get("Chat_WA")
@@ -1567,7 +1567,7 @@ with tab1:
                         st.markdown(f"[Chat WA]({wa_link})")
 
                 # Expander opsional untuk mengintip tabel di bawah
-                with st.expander(f"Tampilkan Tabel Seluruh Data ({len(df_leads)} Data)", expanded=False):
+                with st.expander(f"View Complete Data Table ({len(df_leads)} Leads)", expanded=False):
                     csv_leads = df_leads.drop(columns=["Alasan_Skor", "Atribut"], errors="ignore").to_csv(index=False).encode("utf-8")
                     st.download_button(
                         "Export Dataset (CSV)", csv_leads,
@@ -1584,8 +1584,8 @@ with tab1:
             else:
                 st.markdown("""
                     <div style="text-align:center; padding:28px; border:1px dashed #d1d5db; border-radius:10px; background:#f9fafb; margin:14px 0;">
-                        <div style="font-size:15px; font-weight:600; color:#059669;">Semua lead yang sesuai kriteria telah diverifikasi</div>
-                        <div style="font-size:12px; color:#6b7280; margin-top:6px;">Silakan pilih mode "Tabel Data Lengkap" di atas untuk melihat seluruh riwayat atau mengekspor data.</div>
+                        <div style="font-size:15px; font-weight:600; color:#059669;">All leads matching criteria have been reviewed</div>
+                        <div style="font-size:12px; color:#6b7280; margin-top:6px;">Switch to 'Full Data Table' mode above to view full history or export data.</div>
                     </div>
                 """, unsafe_allow_html=True)
                 st.dataframe(
@@ -1614,24 +1614,24 @@ with tab1:
                 hide_index=True,
                 column_config={
                     "id": st.column_config.NumberColumn("ID", width="small"),
-                    "Komoditas": st.column_config.TextColumn("Komoditas", width="small"),
-                    "Kategori": st.column_config.TextColumn("Kategori", width="small"),
+                    "Komoditas": st.column_config.TextColumn("Commodity", width="small"),
+                    "Kategori": st.column_config.TextColumn("Intent", width="small"),
                     "Volume": st.column_config.TextColumn("Volume", width="small"),
-                    "Harga": st.column_config.TextColumn("Harga", width="small"),
-                    "Lokasi": st.column_config.TextColumn("Lokasi", width="medium"),
-                    "Nama": st.column_config.TextColumn("Pemosting", width="medium"),
-                    "Kontak": st.column_config.TextColumn("Kontak / No. HP", width="medium"),
-                    "Chat_WA": st.column_config.LinkColumn("Aksi", display_text="Chat WA", width="small"),
-                    "Rel_Score": st.column_config.ProgressColumn("Relevansi", min_value=0, max_value=100, format="%d%%", width="small"),
+                    "Harga": st.column_config.TextColumn("Price", width="small"),
+                    "Lokasi": st.column_config.TextColumn("Location", width="medium"),
+                    "Nama": st.column_config.TextColumn("Author / Business", width="medium"),
+                    "Kontak": st.column_config.TextColumn("Contact Phone", width="medium"),
+                    "Chat_WA": st.column_config.LinkColumn("Action", display_text="Chat WA", width="small"),
+                    "Rel_Score": st.column_config.ProgressColumn("Relevance", min_value=0, max_value=100, format="%d%%", width="small"),
                     "Conf_Score": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=100, format="%d%%", width="small"),
-                    "Tgl_Post": st.column_config.TextColumn("Tgl Post", width="small"),
-                    "Sumber": st.column_config.TextColumn("Sumber Data", width="medium"),
-                    "Review": st.column_config.TextColumn("Status", width="small"),
-                    "URL": st.column_config.LinkColumn("Tautan", display_text="Buka Sumber", width="small"),
+                    "Tgl_Post": st.column_config.TextColumn("Posted Date", width="small"),
+                    "Sumber": st.column_config.TextColumn("Data Source", width="medium"),
+                    "Review": st.column_config.TextColumn("Review Status", width="small"),
+                    "URL": st.column_config.LinkColumn("Source Link", display_text="Open Link", width="small"),
                 },
             )
 
-            with st.expander("Rincian Kalkulasi Skor"):
+            with st.expander("Score Calculation Breakdown"):
                 for _, row in df_leads.iterrows():
                     raw_reasons = row.get("Alasan_Skor")
                     reasons = db.loads(raw_reasons, default={})
@@ -1639,19 +1639,19 @@ with tab1:
                         st.markdown(f"**Data #{row['id']}** | {row['Komoditas']} ({row['Lokasi']}) | Status: `{row['Review']}`")
                         col_r, col_c = st.columns(2)
                         with col_r:
-                            st.markdown("**Komponen Relevansi:**")
+                            st.markdown("**Relevance Breakdown:**")
                             for r in reasons.get("relevance", []):
                                 st.caption(r)
                         with col_c:
-                            st.markdown("**Komponen Confidence:**")
+                            st.markdown("**Confidence Breakdown:**")
                             for c in reasons.get("confidence", []):
                                 st.caption(c)
                         st.divider()
 
 # ================= TAB 2: MATCHMAKING & POOLING =================
 with tab2:
-    st.markdown("### Matchmaking dan Smart Pooling Engine")
-    st.caption("Algoritma pencocokan dua sisi (Supply ↔ Demand) dan agregasi multi-petani terdekat (PRD §7.6)")
+    st.markdown("### Matchmaking & Smart Pooling Engine")
+    st.caption("Two-sided algorithmic matching (Supply ↔ Demand) and nearest multi-farmer aggregation (PRD §7.6)")
 
     # --- Hitung statistik untuk stepper ---
     _st_supply_cnt = conn.execute("SELECT COUNT(*) FROM listings WHERE intent = 'supply' AND duplicate_of IS NULL").fetchone()[0]
@@ -1663,56 +1663,56 @@ with tab2:
     if _st_supply_cnt > 0:
         _s1_class = "step-done"
         _s1_badge_class = "badge-done"
-        _s1_badge_text = f"Ada {_st_supply_cnt} petani"
+        _s1_badge_text = f"{_st_supply_cnt} farmers available"
         if _st_approved_sup > 0:
             _s1_badge_text += f" ({_st_approved_sup} approved)"
     else:
         _s1_class = "step-pending"
         _s1_badge_class = "badge-empty"
-        _s1_badge_text = "Belum ada data"
+        _s1_badge_text = "No data yet"
 
     # Step 2 state
     if _st_demand_cnt > 0:
         _s2_class = "step-done"
         _s2_badge_class = "badge-done"
-        _s2_badge_text = f"Ada {_st_demand_cnt} pesanan"
+        _s2_badge_text = f"{_st_demand_cnt} orders available"
     else:
         _s2_class = "step-active" if _st_supply_cnt > 0 else "step-pending"
         _s2_badge_class = "badge-warning" if _st_supply_cnt > 0 else "badge-empty"
-        _s2_badge_text = "Input form di bawah" if _st_supply_cnt > 0 else "Belum ada data"
+        _s2_badge_text = "Fill form below" if _st_supply_cnt > 0 else "No data yet"
 
     # Step 3 state
     if _st_match_cnt > 0:
         _s3_class = "step-done"
         _s3_badge_class = "badge-count"
-        _s3_badge_text = f"{_st_match_cnt} hasil match"
+        _s3_badge_text = f"{_st_match_cnt} matches found"
     elif _st_supply_cnt > 0 and _st_demand_cnt > 0:
         _s3_class = "step-active"
         _s3_badge_class = "badge-warning"
-        _s3_badge_text = "Siap dijalankan"
+        _s3_badge_text = "Ready to run"
     else:
         _s3_class = "step-pending"
         _s3_badge_class = "badge-empty"
-        _s3_badge_text = "Menunggu data"
+        _s3_badge_text = "Waiting for data"
 
     st.markdown(f"""
         <div class="match-stepper">
             <div class="match-step {_s1_class}">
-                <span class="match-step-num">Langkah 1</span>
-                <span class="match-step-title">Data Petani (Supply)</span>
-                <span class="match-step-detail">Cari petani via sidebar atau muat data demo</span>
+                <span class="match-step-num">Step 1</span>
+                <span class="match-step-title">Supply Data (Farmers)</span>
+                <span class="match-step-detail">Search farmers via sidebar or load demo data</span>
                 <span class="match-step-badge {_s1_badge_class}">{_s1_badge_text}</span>
             </div>
             <div class="match-step {_s2_class}">
-                <span class="match-step-num">Langkah 2</span>
-                <span class="match-step-title">Data Pembeli (Demand)</span>
-                <span class="match-step-detail">Input pesanan pembeli lewat form di bawah</span>
+                <span class="match-step-num">Step 2</span>
+                <span class="match-step-title">Demand Data (Buyers)</span>
+                <span class="match-step-detail">Add buyer demand orders via form below</span>
                 <span class="match-step-badge {_s2_badge_class}">{_s2_badge_text}</span>
             </div>
             <div class="match-step {_s3_class}">
-                <span class="match-step-num">Langkah 3</span>
-                <span class="match-step-title">Jalankan Matchmaking</span>
-                <span class="match-step-detail">Hitung kecocokan dan lihat rekomendasi</span>
+                <span class="match-step-num">Step 3</span>
+                <span class="match-step-title">Run Matchmaking</span>
+                <span class="match-step-detail">Calculate match scores & recommendations</span>
                 <span class="match-step-badge {_s3_badge_class}">{_s3_badge_text}</span>
             </div>
         </div>
@@ -1722,12 +1722,12 @@ with tab2:
     if _st_supply_cnt == 0 and _st_demand_cnt == 0:
         st.markdown("""
             <div class="match-guide-box">
-                <h4>Mulai dari Mana?</h4>
+                <h4>Quick Start Guide</h4>
                 <ol>
-                    <li><strong>Cari Petani dulu</strong> — Buka sidebar kiri, pilih komoditas (misal: durian), klik "Mulai Pipeline"</li>
-                    <li><strong>Review hasil</strong> — Di Tab "Verified Leads", approve petani yang relevan</li>
-                    <li><strong>Input pembeli</strong> — Kembali ke tab ini, isi form "Input Permintaan Pembeli Baru" di bawah</li>
-                    <li><strong>Jalankan matchmaking</strong> — Klik tombol di bawah untuk hitung kecocokan</li>
+                    <li><strong>Find Farmers first</strong> — Open left sidebar, choose commodity, click "Search Leads"</li>
+                    <li><strong>Review leads</strong> — In "Verified Leads" tab, approve verified farmer records</li>
+                    <li><strong>Add buyer order</strong> — Return here, fill the "Add New Buyer Order" form below</li>
+                    <li><strong>Run matchmaking</strong> — Click "Run Matchmaking Engine" to view recommendations</li>
                 </ol>
             </div>
         """, unsafe_allow_html=True)
@@ -1741,54 +1741,54 @@ with tab2:
     # --- Action bar ---
     m_act1, m_act2, m_act3 = st.columns([2, 1.5, 1.5])
     with m_act2:
-        tier_select = st.selectbox("Filter Tier", ["Semua", "outreach", "review", "ignored"], index=0, help="outreach (skor ≥80), review (50-79), ignored (<50)")
+        tier_select = st.selectbox("Tier Filter", ["All", "outreach", "review", "ignored"], index=0, help="outreach (score ≥80), review (50-79), ignored (<50)")
 
     with m_act3:
-        include_pending = st.checkbox("Sertakan lead pending berskor tinggi", value=True, help="Menyertakan petani yang belum di-approve tapi relevance ≥70 dan confidence ≥60")
+        include_pending = st.checkbox("Include high-scoring pending leads", value=True, help="Include unapproved farmers with relevance ≥70 and confidence ≥60")
 
     with m_act1:
         _btn_disabled = (_st_supply_cnt == 0 or _st_demand_cnt == 0)
-        _btn_help = "Hitung skor kecocokan semua order pembeli terhadap penawaran petani"
+        _btn_help = "Calculate match scores for all buyer orders against available farmer supplies"
         if _btn_disabled:
-            _btn_help = "Butuh minimal 1 data supply (petani) DAN 1 data demand (pembeli) untuk menjalankan matchmaking"
-        if st.button("Jalankan Matchmaking", type="primary", help=_btn_help, disabled=_btn_disabled):
-            with st.spinner(f"Menghitung kecocokan {_st_demand_cnt} pesanan pembeli terhadap {_st_supply_cnt} penawaran petani..."):
+            _btn_help = "Requires at least 1 supply (farmer) AND 1 demand (buyer) to run matchmaking"
+        if st.button("Run Matchmaking", type="primary", help=_btn_help, disabled=_btn_disabled):
+            with st.spinner(f"Matching {_st_demand_cnt} buyer orders with {_st_supply_cnt} farmer supplies..."):
                 m_stats = run_all_matches(conn, include_pending_high_score=include_pending)
                 if m_stats["matches_created"] == 0 and m_stats["pools_created"] == 0:
                     st.session_state["notify_match_warning"] = (
-                        f"Kalkulasi selesai untuk {m_stats['total_demand']} permintaan pembeli dan {_st_supply_cnt} penawaran petani, "
-                        "namun belum ada pasangan yang memenuhi skor minimal (komoditas berbeda atau kriteria toleransi harga/jarak tidak terpenuhi)."
+                        f"Calculation finished for {m_stats['total_demand']} buyer orders and {_st_supply_cnt} farmer offers, "
+                        "but no pairs met the minimum score criteria (different commodities or price/distance tolerances not met)."
                     )
                 else:
                     st.session_state["notify_match"] = (
-                        f"Matchmaking selesai! Ditemukan {m_stats['matches_created']} match tunggal "
-                        f"dan {m_stats['pools_created']} smart pool dari {m_stats['total_demand']} permintaan pembeli."
+                        f"Matchmaking complete! Found {m_stats['matches_created']} direct matches "
+                        f"and {m_stats['pools_created']} smart pools across {m_stats['total_demand']} buyer orders."
                     )
                 st.rerun()
 
     # --- Form Input Pembeli (auto-expand jika demand kosong) ---
     _demand_form_expanded = (_st_demand_cnt == 0 and _st_supply_cnt > 0)
-    with st.expander("Input Permintaan Pembeli Baru (Demand)", expanded=_demand_form_expanded):
+    with st.expander("Add New Buyer Order (Demand)", expanded=_demand_form_expanded):
         if _st_demand_cnt == 0:
-            st.info("Belum ada data pembeli. Isi form di bawah untuk menambahkan pesanan pembeli pertama.")
-        st.caption("Tambahkan pesanan pembeli baru untuk langsung dipasangkan dengan petani di database.")
+            st.info("No buyer demand records yet. Fill the form below to add your first buyer order.")
+        st.caption("Add a new buyer order to immediately pair with farmer supplies in the database.")
         with st.form("form_manual_order"):
             fo_c1, fo_c2 = st.columns(2)
             with fo_c1:
-                b_name = st.text_input("Nama Usaha / Pembeli *", placeholder="Contoh: PT Sumber Berkah Buah")
-                b_prod = st.text_input("Komoditas *", placeholder="Contoh: melon, semangka, pisang")
-                b_vol = st.number_input("Volume Kebutuhan (Kg) *", min_value=1.0, value=500.0, step=50.0)
-                b_price = st.number_input("Batas Anggaran Maksimal (Rp/Kg)", min_value=0.0, value=9000.0, step=500.0)
+                b_name = st.text_input("Business / Buyer Name *", placeholder="e.g. PT Sumber Berkah Buah")
+                b_prod = st.text_input("Commodity *", placeholder="e.g. melon, watermelon, banana")
+                b_vol = st.number_input("Required Volume (Kg) *", min_value=1.0, value=500.0, step=50.0)
+                b_price = st.number_input("Budget Limit (Rp/Kg)", min_value=0.0, value=9000.0, step=500.0)
             with fo_c2:
-                b_loc = st.text_input("Titik Pengiriman (Kabupaten/Kota) *", placeholder="Contoh: Kota Surabaya, Sidoarjo, Kediri")
-                b_date = st.date_input("Tenggat Kebutuhan", value=datetime.now())
-                b_phone = st.text_input("Nomor Kontak Pembeli", placeholder="Contoh: 081234567890")
-                b_var = st.text_input("Varietas Khusus (Opsional)", placeholder="Contoh: madesta, golden, atau kosongkan")
+                b_loc = st.text_input("Delivery Destination (City/Regency) *", placeholder="e.g. Surabaya, Sidoarjo, Kediri")
+                b_date = st.date_input("Target Delivery Date", value=datetime.now())
+                b_phone = st.text_input("Buyer Contact Phone", placeholder="e.g. +6281234567890")
+                b_var = st.text_input("Specific Variety (Optional)", placeholder="e.g. madesta, golden, or leave blank")
 
-            submitted_order = st.form_submit_button("Simpan Permintaan Pembeli", type="secondary")
+            submitted_order = st.form_submit_button("Save Buyer Order", type="secondary")
             if submitted_order:
                 if not b_name or not b_prod or not b_loc:
-                    st.error("Nama pembeli, komoditas, dan lokasi pengiriman wajib diisi.")
+                    st.error("Buyer name, commodity, and delivery location are required.")
                 else:
                     new_id = save_manual_order(
                         conn,
@@ -1801,7 +1801,7 @@ with tab2:
                         contact_phone=b_phone,
                         variety=b_var,
                     )
-                    st.success(f"Permintaan #{new_id} untuk '{b_name}' berhasil disimpan.")
+                    st.success(f"Order #{new_id} for '{b_name}' saved successfully.")
                     st.rerun()
 
     matches_list = get_matches_for_display(conn, tier_filter=tier_select)
@@ -1811,23 +1811,23 @@ with tab2:
             pass  # Guide box sudah ditampilkan di atas
         elif _st_demand_cnt == 0:
             st.info(
-                f"Data petani sudah ada ({_st_supply_cnt} listing). "
-                "Sekarang tambahkan pesanan pembeli lewat form di atas, lalu klik 'Jalankan Matchmaking'."
+                f"Farmer supply data is ready ({_st_supply_cnt} listings). "
+                "Now add buyer demand using the form above, then click 'Run Matchmaking'."
             )
         elif _st_supply_cnt == 0:
             st.info(
-                f"Data pembeli sudah ada ({_st_demand_cnt} pesanan). "
-                "Jalankan 'Cari Petani' di sidebar untuk mendapatkan data supply, lalu klik 'Jalankan Matchmaking'."
+                f"Buyer demand data is ready ({_st_demand_cnt} orders). "
+                "Run 'Find Supply' in the sidebar to scrape farmer data, then click 'Run Matchmaking'."
             )
         else:
             st.info(
-                f"Database siap: {_st_supply_cnt} petani dan {_st_demand_cnt} pembeli. "
-                "Klik tombol 'Jalankan Matchmaking' di atas untuk menghitung kecocokan."
+                f"Database ready: {_st_supply_cnt} farmers and {_st_demand_cnt} buyers. "
+                "Click 'Run Matchmaking' above to calculate recommendation matches."
             )
     else:
         top_exp1, top_exp2 = st.columns([3, 1.3])
         with top_exp1:
-            st.caption(f"Menampilkan {len(matches_list)} hasil rekomendasi pasangan:")
+            st.caption(f"Displaying {len(matches_list)} matching recommendation pairs:")
         with top_exp2:
             df_export = build_matches_export_dataframe(matches_list)
             csv_matches = df_export.to_csv(index=False).encode("utf-8")
@@ -1842,7 +1842,7 @@ with tab2:
         for m in matches_list:
             is_pool = (m["kind"] == "pool")
             tier_class = "apify-pill-success" if m["tier"] == "outreach" else ("apify-pill-review" if m["tier"] == "review" else "apify-pill-ignored")
-            tier_label = "Prioritas Outreach" if m["tier"] == "outreach" else ("Perlu Review" if m["tier"] == "review" else "Diabaikan")
+            tier_label = "Outreach Priority" if m["tier"] == "outreach" else ("Needs Review" if m["tier"] == "review" else "Ignored")
             kind_class = "apify-pill-pool" if is_pool else "apify-pill-single"
             kind_label = "Smart Pooling" if is_pool else "Match Tunggal"
 
@@ -1855,37 +1855,37 @@ with tab2:
                             <span class="apify-pill {tier_class}">{tier_label}</span>
                             <h4 style="margin:8px 0 2px 0; color:#101828;">{m['buyer_name']} ({m['buyer_location']})</h4>
                             <span style="font-size:12px; color:#64748b;">
-                                Komoditas: <b>{(m.get('product') or 'Komoditas').title()}</b> | 
-                                Kebutuhan: <b>{f"{m['buyer_vol']:g} kg" if m.get('buyer_vol') is not None else "Tidak ditentukan"}</b> | 
-                                Anggaran Maksimal: <b>{f"Rp {float(m['buyer_max_price']):,.0f}/kg" if m.get('buyer_max_price') is not None else 'Belum ditentukan'}</b>
+                                Commodity: <b>{(m.get('product') or 'Commodity').title()}</b> | 
+                                Required: <b>{f"{m['buyer_vol']:g} kg" if m.get('buyer_vol') is not None else "Unspecified"}</b> | 
+                                Max Budget: <b>{f"Rp {float(m['buyer_max_price']):,.0f}/kg" if m.get('buyer_max_price') is not None else 'Unspecified'}</b>
                             </span>
                         </div>
                         <div style="text-align:right;">
                             <div style="font-size:1.8rem; font-weight:700; color:#101828; line-height:1;">
                                 {m.get('score', 0)}<span style="font-size:12px; color:#64748b; font-weight:500;">/100</span>
                             </div>
-                            <div style="font-size:11px; color:#0284c7; font-weight:600; margin-top:2px;">Cakupan: {f"{m['coverage_pct']:g}%" if m.get('coverage_pct') is not None else "-"}</div>
+                            <div style="font-size:11px; color:#0284c7; font-weight:600; margin-top:2px;">Coverage: {f"{m['coverage_pct']:g}%" if m.get('coverage_pct') is not None else "-"}</div>
                         </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
 
             with st.container(border=True):
-                st.markdown("**Petani Rekomendasi:**")
+                st.markdown("**Recommended Farmers:**")
                 items = m.get("items", [])
                 if items:
                     f_cols = st.columns(len(items)) if len(items) <= 3 else [st.container()]
                     for idx, it in enumerate(items):
                         target_col = f_cols[idx] if len(items) <= 3 else st
                         with target_col:
-                            st.markdown(f"**{it.get('farmer_name') or 'Petani'}** ({it.get('farmer_location') or '-'})")
+                            st.markdown(f"**{it.get('farmer_name') or 'Farmer'}** ({it.get('farmer_location') or '-'})")
                             f_pr = it.get('farmer_price')
-                            price_str = f"Rp {float(f_pr):,.0f}/kg" if f_pr is not None else "Belum tertera"
+                            price_str = f"Rp {float(f_pr):,.0f}/kg" if f_pr is not None else "Not listed"
                             al_kg = it.get('allocated_kg')
                             alloc_str = f"{float(al_kg):g} kg" if al_kg is not None else "-"
-                            st.caption(f"Alokasi: {alloc_str} | Harga: {price_str}")
+                            st.caption(f"Allocation: {alloc_str} | Price: {price_str}")
                             if it.get("distance_km"):
-                                st.caption(f"Estimasi Jarak: {it['distance_km']} km")
+                                st.caption(f"Estimated Distance: {it['distance_km']} km")
                             
                             farmer_draft = draft_farmer_outreach_for_match(
                                 farmer_name=it.get('farmer_name'),
@@ -1898,11 +1898,11 @@ with tab2:
                             )
                             farmer_wa_url = format_wa_url(it.get('farmer_phone') or it.get('farmer_wa'), farmer_draft)
                             if farmer_wa_url:
-                                st.markdown(f"[Hubungi WhatsApp]({farmer_wa_url})")
-                                with st.popover("Draf Pesan & CRM"):
-                                    st.caption("Draf otomatis yang terisi di WhatsApp:")
+                                st.markdown(f"[Contact via WhatsApp]({farmer_wa_url})")
+                                with st.popover("Outreach Draft & CRM"):
+                                    st.caption("Auto-generated WhatsApp outreach draft:")
                                     st.code(farmer_draft, language="text")
-                                    if st.button("Daftarkan ke Sales CRM", key=f"btn_reg_crm_f_{m['match_id']}_{it['supply_id']}"):
+                                    if st.button("Register to Sales CRM", key=f"btn_reg_crm_f_{m['match_id']}_{it['supply_id']}"):
                                         existing_c = db.get_conversation_by_listing(conn, it['supply_id'])
                                         if not existing_c:
                                             new_c_id = db.create_conversation(
@@ -1917,17 +1917,17 @@ with tab2:
                                                 followup_due_at=calculate_due_date(days_ahead=3),
                                             )
                                             db.add_message(conn, new_c_id, "outbound", "ai", farmer_draft, delivery_status="draft")
-                                            st.session_state["notify_success"] = f"Petani '{it.get('farmer_name')}' berhasil didaftarkan ke Sales CRM #{new_c_id}!"
+                                            st.session_state["notify_success"] = f"Farmer '{it.get('farmer_name')}' enrolled into Sales CRM #{new_c_id}!"
                                         else:
-                                            st.session_state["notify_info"] = f"Petani '{it.get('farmer_name')}' sudah ada di Sales CRM #{existing_c['id']}."
+                                            st.session_state["notify_info"] = f"Farmer '{it.get('farmer_name')}' already exists in Sales CRM #{existing_c['id']}."
                                         st.rerun()
                             elif it.get("farmer_phone"):
-                                st.caption(f"Telp: {it['farmer_phone']}")
+                                st.caption(f"Phone: {it['farmer_phone']}")
 
                 if is_pool:
                     disclaimer_text = m.get("breakdown", {}).get("disclaimer")
                     if disclaimer_text:
-                        st.info(f"Catatan Agregasi: {disclaimer_text}")
+                        st.info(f"Aggregation Note: {disclaimer_text}")
 
                 margin_info = m.get("margin")
                 if margin_info and (margin_info.get("est_gross_margin_rp") or 0) > 0:
@@ -1936,14 +1936,14 @@ with tab2:
                     f_price = margin_info.get('farmer_price') or 0
                     s_price = margin_info.get('suggested_price') or 0
                     st.markdown(
-                        f"**Estimasi Margin GoTani ({m_pct:.0%}):** "
+                        f"**Estimated GoTani Margin ({m_pct:.0%}):** "
                         f"Rp {m_gross:,.0f} "
-                        f"(Harga Petani: Rp {f_price:,.0f}/kg, Rekomendasi Penawaran: Rp {s_price:,.0f}/kg)"
+                        f"(Farmer Price: Rp {f_price:,.0f}/kg, Suggested Offer: Rp {s_price:,.0f}/kg)"
                     )
 
                 gaps = m.get("gaps", [])
                 if gaps:
-                    with st.expander("Catatan Validasi & Kekurangan Data", expanded=False):
+                    with st.expander("Data Gaps & Validation Notes", expanded=False):
                         for g in gaps:
                             st.caption(f"- {g}")
 
@@ -1964,11 +1964,11 @@ with tab2:
                     )
                     buyer_wa_url = format_wa_url(m.get("buyer_phone") or m.get("buyer_wa"), buyer_draft)
                     if buyer_wa_url:
-                        st.markdown(f"[Hubungi Pembeli via WhatsApp]({buyer_wa_url})")
-                        with st.popover("Draf Penawaran & CRM"):
-                            st.caption("Draf penawaran otomatis untuk pembeli:")
+                        st.markdown(f"[Contact Buyer via WhatsApp]({buyer_wa_url})")
+                        with st.popover("Offer Draft & CRM"):
+                            st.caption("Auto-generated offer draft for buyer:")
                             st.code(buyer_draft, language="text")
-                            if st.button("Daftarkan Pembeli ke CRM", key=f"btn_reg_crm_b_{m['match_id']}"):
+                            if st.button("Register Buyer to Sales CRM", key=f"btn_reg_crm_b_{m['match_id']}"):
                                 existing_cb = db.get_conversation_by_listing(conn, m['demand_id'])
                                 if not existing_cb:
                                     new_cb_id = db.create_conversation(
@@ -1983,41 +1983,41 @@ with tab2:
                                         followup_due_at=calculate_due_date(days_ahead=3),
                                     )
                                     db.add_message(conn, new_cb_id, "outbound", "ai", buyer_draft, delivery_status="draft")
-                                    st.session_state["notify_success"] = f"Pembeli '{m['buyer_name']}' berhasil didaftarkan ke Sales CRM #{new_cb_id}!"
+                                    st.session_state["notify_success"] = f"Buyer '{m['buyer_name']}' enrolled into Sales CRM #{new_cb_id}!"
                                 else:
-                                    st.session_state["notify_info"] = f"Pembeli '{m['buyer_name']}' sudah ada di Sales CRM #{existing_cb['id']}."
+                                    st.session_state["notify_info"] = f"Buyer '{m['buyer_name']}' already exists in Sales CRM #{existing_cb['id']}."
                                 st.rerun()
                     else:
-                        st.caption("Kontak pembeli belum tersedia")
+                        st.caption("Buyer contact phone not available")
 
 
                 with act_c2:
                     if m["status"] == "open":
-                        if st.button("Konfirmasi Outreach", key=f"conf_{m['match_id']}"):
+                        if st.button("Confirm Outreach", key=f"conf_{m['match_id']}"):
                             update_match_status(conn, m["match_id"], "confirmed")
-                            st.success("Status match diperbarui menjadi confirmed.")
+                            st.success("Match status updated to confirmed.")
                             st.rerun()
                     else:
-                        st.caption(f"Status Alur: {m['status'].upper()}")
+                        st.caption(f"Workflow Status: {m['status'].upper()}")
 
                 with act_c3:
                     if m["status"] != "closed":
-                        with st.popover("Catat Hasil Transaksi"):
-                            out_choice = st.radio("Hasil Transaksi", ["deal", "no_deal"], key=f"rad_{m['match_id']}")
-                            out_note = st.text_input("Keterangan Hasil", placeholder="Contoh: Kesepakatan harga tercapai, jadwal panen cocok", key=f"note_{m['match_id']}")
-                            if st.button("Simpan Hasil", key=f"btn_out_{m['match_id']}"):
+                        with st.popover("Record Deal Outcome"):
+                            out_choice = st.radio("Deal Outcome", ["deal", "no_deal"], key=f"rad_{m['match_id']}")
+                            out_note = st.text_input("Outcome Notes", placeholder="e.g. Price agreement reached, harvest schedule aligned", key=f"note_{m['match_id']}")
+                            if st.button("Save Outcome", key=f"btn_out_{m['match_id']}"):
                                 update_match_outcome(conn, m["match_id"], out_choice, out_note)
-                                st.success("Hasil transaksi tersimpan.")
+                                st.success("Transaction outcome saved.")
                                 st.rerun()
                     else:
-                        st.caption(f"Hasil Akhir: {str(m.get('outcome')).upper()} ({m.get('outcome_reason') or '-'})")
+                        st.caption(f"Final Outcome: {str(m.get('outcome')).upper()} ({m.get('outcome_reason') or '-'})")
 
 
 
 # ================= TAB 3: SALES INBOX & OUTREACH CRM (FASE 3) =================
 with tab3:
     st.markdown("### Sales Inbox & Outreach CRM")
-    st.caption("Pusat komando outreach terpersonalisasi, cadence follow-up otomatis, smart handover eskalasi, dan kepatuhan UU PDP (PRD §7.8)")
+    st.caption("Personalized outreach command center, automated cadence follow-ups, smart handover escalation, and PDP compliance (PRD §7.8)")
 
     # 1. Metrics & Action bar
     s_metrics = calculate_sales_metrics(conn)
@@ -2032,24 +2032,24 @@ with tab3:
     st.markdown(f"""
         <div class="crm-status-strip">
             <div class="crm-status-card">
-                <div class="crm-status-card-title">Total Percakapan</div>
+                <div class="crm-status-card-title">Total Conversations</div>
                 <div class="crm-status-card-value">{_crm_total}</div>
-                <div class="crm-status-card-sub">Semua sesi CRM aktif & arsip</div>
+                <div class="crm-status-card-sub">All active & archived CRM threads</div>
             </div>
             <div class="crm-status-card">
-                <div class="crm-status-card-title">Outreach Terkirim</div>
+                <div class="crm-status-card-title">Outreach Sent</div>
                 <div class="crm-status-card-value">{_crm_outreach}</div>
-                <div class="crm-status-card-sub">Pesan pertama yang sudah dikirim</div>
+                <div class="crm-status-card-sub">Initial outreach messages delivered</div>
             </div>
             <div class="crm-status-card {_ho_class}">
-                <div class="crm-status-card-title">Butuh Handover</div>
+                <div class="crm-status-card-title">Needs Handover</div>
                 <div class="crm-status-card-value">{_crm_handover}</div>
-                <div class="crm-status-card-sub">Perlu ditangani staf manusia</div>
+                <div class="crm-status-card-sub">Escalated to human sales team</div>
             </div>
             <div class="crm-status-card {_won_class}">
                 <div class="crm-status-card-title">Deals Won</div>
                 <div class="crm-status-card-value">{_crm_won}</div>
-                <div class="crm-status-card-sub">Transaksi berhasil disepakati</div>
+                <div class="crm-status-card-sub">Transactions successfully closed</div>
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -2058,20 +2058,20 @@ with tab3:
     if _crm_total == 0:
         st.markdown("""
             <div class="crm-flow-guide">
-                <h4>Cara Menggunakan Sales CRM</h4>
+                <h4>How to Use Sales CRM</h4>
                 <div class="flow-steps">
-                    <div class="flow-step"><span class="step-num">1</span> Scraping petani di sidebar</div>
+                    <div class="flow-step"><span class="step-num">1</span> Scrape leads via sidebar</div>
                     <span class="flow-arrow">→</span>
-                    <div class="flow-step"><span class="step-num">2</span> Approve lead di Tab 1</div>
+                    <div class="flow-step"><span class="step-num">2</span> Approve leads in Tab 1</div>
                     <span class="flow-arrow">→</span>
-                    <div class="flow-step"><span class="step-num">3</span> Matchmaking di Tab 2</div>
+                    <div class="flow-step"><span class="step-num">3</span> Run Matchmaking in Tab 2</div>
                     <span class="flow-arrow">→</span>
-                    <div class="flow-step"><span class="step-num">4</span> Klik "Daftarkan ke CRM" pada match</div>
+                    <div class="flow-step"><span class="step-num">4</span> Click "Register to CRM" on matches</div>
                     <span class="flow-arrow">→</span>
-                    <div class="flow-step"><span class="step-num">5</span> Kelola percakapan di sini</div>
+                    <div class="flow-step"><span class="step-num">5</span> Manage conversations here</div>
                 </div>
                 <p style="font-size:12px; color:#64748b; margin-top:12px;">
-                    Atau klik tombol "Inisiasi Outreach Lead Baru" di bawah untuk langsung memulai percakapan dari lead yang sudah punya kontak.
+                    Or click "Initiate New Lead Outreach" below to start outreach directly for verified leads with contact numbers.
                 </p>
             </div>
         """, unsafe_allow_html=True)
@@ -2082,41 +2082,41 @@ with tab3:
         df_export_crm = build_conversations_export_dataframe(conn)
         csv_crm = df_export_crm.to_csv(index=False).encode("utf-8")
         st.download_button(
-            "Export Laporan CRM (CSV)",
+            "Export CRM Report (CSV)",
             csv_crm,
             file_name=f"sales_crm_report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv",
-            help="Unduh rekapan komprehensif performa sales outreach dan riwayat interaksi.",
+            help="Download comprehensive report of sales outreach performance and interaction history.",
             use_container_width=True,
         )
 
     # Funnel Konversi Sales (PRD §7.8 / F8.10)
-    with st.expander("Funnel Konversi & Metrik Kinerja Sales AI (PRD F8.10)", expanded=False):
+    with st.expander("Sales AI Conversion Funnel & Performance Metrics (PRD F8.10)", expanded=False):
         f_m1, f_m2, f_m3, f_m4 = st.columns(4)
-        f_m1.metric("Reply Rate", f"{s_metrics['reply_rate_pct']}%", help="Persentase lead yang membalas pesan outreach.")
-        f_m2.metric("Handover Rate", f"{s_metrics['handover_rate_pct']}%", help="Persentase percakapan yang membutuhkan bantuan staf manusia.")
-        f_m3.metric("Conversion (Win) Rate", f"{s_metrics['conversion_rate_pct']}%", help="Persentase kesepakatan transaksi dari total outreach.")
-        f_m4.metric("Opt-Out (DNC) Rate", f"{s_metrics['opt_out_rate_pct']}%", help="Persentase kontak yang menolak (Target: < 5%).")
+        f_m1.metric("Reply Rate", f"{s_metrics['reply_rate_pct']}%", help="Percentage of leads who replied to outreach messages.")
+        f_m2.metric("Handover Rate", f"{s_metrics['handover_rate_pct']}%", help="Percentage of conversations requiring human sales assistance.")
+        f_m3.metric("Conversion (Win) Rate", f"{s_metrics['conversion_rate_pct']}%", help="Percentage of closed deals relative to total outreach.")
+        f_m4.metric("Opt-Out (DNC) Rate", f"{s_metrics['opt_out_rate_pct']}%", help="Percentage of contacts opting out (Target: < 5%).")
 
     # 2. Check Cadence Follow-Up Due
     due_followups = get_due_followups(conn)
     if due_followups:
-        st.warning(f"Ada {len(due_followups)} percakapan yang telah jatuh tempo untuk dikirimkan pesan follow-up.")
-        with st.expander(f"Lihat Daftar Pengingat Jatuh Tempo ({len(due_followups)})", expanded=True):
+        st.warning(f"There are {len(due_followups)} conversations due for follow-up.")
+        with st.expander(f"View Due Follow-Up Reminders ({len(due_followups)})", expanded=True):
             for df_row in due_followups:
                 df_c1, df_c2 = st.columns([3, 1])
                 with df_c1:
-                    st.markdown(f"**{df_row['contact_name'] or 'Kontak'}** ({df_row['contact_phone']}) - Komoditas: {df_row['product']}")
-                    st.caption(f"Status: {df_row['state']} | Follow-up ke-{df_row['followup_count'] + 1} jatuh tempo pada {df_row['followup_due_at']}")
+                    st.markdown(f"**{df_row['contact_name'] or 'Contact'}** ({df_row['contact_phone']}) - Commodity: {df_row['product']}")
+                    st.caption(f"Status: {df_row['state']} | Follow-up #{df_row['followup_count'] + 1} due at {df_row['followup_due_at']}")
                 with df_c2:
                     fu_msg = generate_followup_message(conn, df_row['id'])
                     fu_url = format_wa_url(df_row['contact_phone'], fu_msg)
                     if fu_url:
-                        st.markdown(f"[Kirim Follow-Up via WA]({fu_url})")
-                    if st.button(f"Tandai Terkirim #{df_row['id']}", key=f"btn_send_fu_{df_row['id']}"):
+                        st.markdown(f"[Send Follow-Up via WhatsApp]({fu_url})")
+                    if st.button(f"Mark Sent #{df_row['id']}", key=f"btn_send_fu_{df_row['id']}"):
                         db.add_message(conn, df_row['id'], "outbound", "ai", fu_msg, delivery_status="sent")
                         advance_followup(conn, df_row['id'])
-                        st.success(f"Follow-up untuk #{df_row['id']} berhasil dicatat!")
+                        st.success(f"Follow-up for #{df_row['id']} recorded successfully!")
                         st.rerun()
 
     st.write("")
@@ -2124,15 +2124,15 @@ with tab3:
     f_c1, f_c2, f_c3 = st.columns([1.5, 1.5, 2])
     with f_c1:
         crm_state_filter = st.selectbox(
-            "Filter Status Percakapan",
-            ["Semua", "drafted", "sent", "followup_1", "active", "handover_pending", "closed_won", "closed_lost", "opt_out"],
+            "Filter Conversation State",
+            ["All", "drafted", "sent", "followup_1", "active", "handover_pending", "closed_won", "closed_lost", "opt_out"],
             index=0,
             key="crm_filter_state"
         )
     with f_c2:
         crm_role_filter = st.selectbox(
-            "Filter Peran Prospek",
-            ["Semua", "farmer", "buyer"],
+            "Filter Prospect Role",
+            ["All", "farmer", "buyer"],
             index=0,
             key="crm_filter_role"
         )
@@ -2140,8 +2140,8 @@ with tab3:
     # Inisiasi Percakapan Baru dari Listing Approved
     with f_c3:
         st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
-        with st.popover("Inisiasi Outreach Lead Baru"):
-            st.caption("Pilih lead terverifikasi untuk dibuatkan draf percakapan pertama:")
+        with st.popover("Initiate New Lead Outreach"):
+            st.caption("Select a verified lead to generate initial outreach draft:")
             avail_leads = conn.execute("""
                 SELECT id, entity_name, product, intent, contact_phone, kabupaten
                 FROM listings
@@ -2151,11 +2151,11 @@ with tab3:
                 ORDER BY relevance DESC, confidence DESC LIMIT 15
             """).fetchall()
             if not avail_leads:
-                st.caption("Semua lead yang memiliki kontak sudah memiliki sesi percakapan.")
+                st.caption("All leads with contact details already have active conversation sessions.")
             else:
-                lead_choices = {f"#{l['id']} - {l['entity_name'] or 'Anonim'} ({l['product']}, {l['intent']}, {l['kabupaten']})": l for l in avail_leads}
-                sel_lead_key = st.selectbox("Pilih Prospek", list(lead_choices.keys()))
-                if st.button("Buat Sesi Percakapan", type="primary"):
+                lead_choices = {f"#{l['id']} - {l['entity_name'] or 'Anonymous'} ({l['product']}, {l['intent']}, {l['kabupaten']})": l for l in avail_leads}
+                sel_lead_key = st.selectbox("Select Lead", list(lead_choices.keys()))
+                if st.button("Create Conversation Session", type="primary"):
                     sel_l = lead_choices[sel_lead_key]
                     role_val = "farmer" if sel_l["intent"] == "supply" else "buyer"
                     # Buat percakapan
@@ -2172,7 +2172,7 @@ with tab3:
                     # Buat draf pesan awal
                     init_draft = generate_initial_outreach(conn, sel_l["id"], gateway=gateway)
                     db.add_message(conn, c_id, "outbound", "ai", init_draft, delivery_status="draft")
-                    st.session_state["notify_success"] = f"Percakapan #{c_id} untuk '{sel_l['entity_name']}' berhasil diinisiasi!"
+                    st.session_state["notify_success"] = f"Conversation #{c_id} for '{sel_l['entity_name']}' initiated successfully!"
                     st.rerun()
 
     # 4. Tampilkan daftar percakapan
@@ -2180,21 +2180,21 @@ with tab3:
     if not conversations_list:
         if _crm_total == 0:
             st.info(
-                "Belum ada sesi percakapan. Mulai dengan mendaftarkan lead dari hasil matchmaking (Tab 2) "
-                "atau klik 'Inisiasi Outreach Lead Baru' di atas untuk memulai percakapan baru."
+                "No conversation sessions yet. Start by enrolling leads from matchmaking results (Tab 2) "
+                "or click 'Initiate New Lead Outreach' above to start a new outreach thread."
             )
         else:
-            st.info("Tidak ada percakapan yang sesuai dengan filter yang dipilih. Coba ubah filter status atau peran di atas.")
+            st.info("No conversations match the selected filter. Try changing the status or role filter above.")
     else:
-        st.caption(f"Menampilkan {len(conversations_list)} sesi percakapan:")
+        st.caption(f"Displaying {len(conversations_list)} conversation sessions:")
         for c in conversations_list:
             c_dict = dict(c)
             c_id = c_dict["id"]
             c_state = c_dict["state"]
-            c_name = c_dict["contact_name"] or "Tanpa Nama"
+            c_name = c_dict["contact_name"] or "Unnamed Contact"
             c_phone = c_dict["contact_phone"]
-            c_role = "Petani (Supply)" if c_dict["role"] == "farmer" else "Pembeli (Demand)"
-            c_prod = (c_dict.get("product") or "komoditas").title()
+            c_role = "Farmer (Supply)" if c_dict["role"] == "farmer" else "Buyer (Demand)"
+            c_prod = (c_dict.get("product") or "commodity").title()
             c_vol = f"{c_dict.get('volume_kg'):g} kg" if c_dict.get('volume_kg') else ""
             c_loc = c_dict.get("kabupaten") or c_dict.get("location_text") or "-"
 
@@ -2227,29 +2227,29 @@ with tab3:
                 # Banner Handover jika pending
                 if c_state == "handover_pending":
                     st.error(
-                        f"🚨 **ESKALASI HANDOVER SALES:** Percakapan ini membutuhkan respons langsung staf GoTani! "
-                        f"Penyebab: {c_dict.get('summary_text') or 'Lead merespons dengan pertanyaan atau negosiasi.'}"
+                        f"🚨 **SALES HANDOVER ESCALATION:** This conversation requires direct GoTani staff attention! "
+                        f"Reason: {c_dict.get('summary_text') or 'Lead replied with a specific inquiry or negotiation.'}"
                     )
                     h_act1, h_act2, h_act3 = st.columns(3)
                     with h_act1:
-                        if st.button("Ambil Alih (Take Over)", key=f"btn_takeover_{c_id}", type="primary"):
-                            db.update_conversation(conn, c_id, state="active", assigned_sales="Staf Aktif")
-                            st.success(f"Percakapan #{c_id} dialihkan ke penanganan staf manusia.")
+                        if st.button("Take Over (Human CS)", key=f"btn_takeover_{c_id}", type="primary"):
+                            db.update_conversation(conn, c_id, state="active", assigned_sales="Active Staff")
+                            st.success(f"Conversation #{c_id} handed over to human sales team.")
                             st.rerun()
                     with h_act2:
-                        if st.button("Tandai Deal (Closed Won)", key=f"btn_won_{c_id}"):
-                            db.update_conversation(conn, c_id, state="closed_won", summary_text="Kesepakatan deal tercapai.")
-                            st.success(f"Transaksi #{c_id} sukses dicatat sebagai Closed Won!")
+                        if st.button("Mark Deal (Closed Won)", key=f"btn_won_{c_id}"):
+                            db.update_conversation(conn, c_id, state="closed_won", summary_text="Deal agreement reached.")
+                            st.success(f"Deal #{c_id} marked as Closed Won!")
                             st.rerun()
                     with h_act3:
-                        if st.button("Tutup (Closed Lost)", key=f"btn_lost_{c_id}"):
-                            db.update_conversation(conn, c_id, state="closed_lost", summary_text="Tidak tercapai kesepakatan.")
-                            st.info(f"Percakapan #{c_id} ditutup.")
+                        if st.button("Close (Closed Lost)", key=f"btn_lost_{c_id}"):
+                            db.update_conversation(conn, c_id, state="closed_lost", summary_text="No agreement reached.")
+                            st.info(f"Conversation #{c_id} closed as Lost.")
                             st.rerun()
 
                 # Riwayat Pesan (Thread Expander)
                 msgs = db.get_messages(conn, c_id)
-                with st.expander(f"Thread Riwayat Pesan ({len(msgs)} pesan)", expanded=(c_state in ("drafted", "handover_pending"))):
+                with st.expander(f"Message History Thread ({len(msgs)} messages)", expanded=(c_state in ("drafted", "handover_pending"))):
                     for m in msgs:
                         m_dict = dict(m)
                         if m_dict["direction"] == "outbound":
@@ -2282,22 +2282,22 @@ with tab3:
                         latest_outbound = next((m["content"] for m in reversed(msgs) if m["direction"] == "outbound"), "")
                         wa_url = format_wa_url(c_phone, latest_outbound)
                         if wa_url and not is_do_not_contact(conn, c_phone):
-                            st.markdown(f"**[Buka WhatsApp Web / App]({wa_url})**")
+                            st.markdown(f"**[Open WhatsApp Web / App]({wa_url})**")
                         elif is_do_not_contact(conn, c_phone):
-                            st.caption("Nomor ini telah Opt-Out (Do-Not-Contact). Pengiriman dinonaktifkan.")
+                            st.caption("This contact opted out (Do-Not-Contact). Messaging is disabled.")
 
                         if c_state == "drafted":
-                            if st.button("Tandai Pesan Awal Terkirim", key=f"btn_mark_sent_{c_id}"):
+                            if st.button("Mark Initial Message Sent", key=f"btn_mark_sent_{c_id}"):
                                 db.update_conversation(conn, c_id, state="sent", followup_due_at=calculate_due_date(days_ahead=3))
-                                st.success("Status percakapan diperbarui ke 'sent' (jadwal follow-up H+3 aktif).")
+                                st.success("Conversation status updated to 'sent' (Day+3 follow-up scheduled).")
                                 st.rerun()
 
                     with act_col2:
                         # Form input balasan masuk dari lead
                         if c_state not in ("closed_won", "closed_lost", "opt_out"):
                             with st.form(key=f"form_inbound_{c_id}"):
-                                in_text = st.text_input("Input balasan pesan WhatsApp dari lead:", placeholder="Contoh: Masih ada 1 ton, harga pas berapa?")
-                                submit_inbound = st.form_submit_button("Proses Balasan Lead")
+                                in_text = st.text_input("Input inbound WhatsApp reply from lead:", placeholder="e.g. 1 ton available, what is your best price?")
+                                submit_inbound = st.form_submit_button("Process Lead Reply")
                                 if submit_inbound and in_text.strip():
                                     # 1. Catat inbound message
                                     db.add_message(conn, c_id, "inbound", "lead", in_text.strip(), delivery_status="received")
@@ -2307,21 +2307,21 @@ with tab3:
                                     
                                     if eval_res["trigger_type"] == "opt_out":
                                         register_opt_out_contact(conn, c_phone, reason="user_stop", source_message=in_text.strip())
-                                        st.warning("Lead meminta berhenti dihubungi. Kontak otomatis dimasukkan ke supresi Do-Not-Contact (UU PDP).")
+                                        st.warning("Lead requested to stop contact. Number automatically registered to Do-Not-Contact suppression list.")
                                     elif eval_res["needs_handover"]:
                                         db.update_conversation(conn, c_id, state="handover_pending", summary_text=eval_res["reason"])
-                                        st.error(f"Eskalasi Handover Terdeteksi: {eval_res['reason']}")
+                                        st.error(f"Human Handover Escalation Detected: {eval_res['reason']}")
                                     else:
                                         # Hasilkan respon AI rutin
                                         ai_reply = generate_conversational_reply(conn, c_id, in_text.strip(), gateway=gateway)
                                         db.add_message(conn, c_id, "outbound", "ai", ai_reply, delivery_status="draft")
-                                        db.update_conversation(conn, c_id, state="active", summary_text="AI menyusun draf balasan.")
-                                        st.success("Balasan dianalisis! Draf respon AI telah ditambahkan ke thread percakapan.")
+                                        db.update_conversation(conn, c_id, state="active", summary_text="AI generated response draft.")
+                                        st.success("Reply analyzed! AI response draft added to the conversation thread.")
                                     st.rerun()
 
     # 5. Tabel Supresi Kepatuhan UU PDP (Opt-Out Registry)
-    with st.expander("Registri Kepatuhan & Supresi Kontak (Do-Not-Contact List - UU PDP G5)", expanded=False):
-        st.caption("Daftar nomor telepon yang meminta berhenti dihubungi atau penghapusan data kontak:")
+    with st.expander("Do-Not-Contact & Suppression Registry (PDP Compliance - G5)", expanded=False):
+        st.caption("List of contact numbers requesting to opt out or stop communication:")
         opt_rows = conn.execute("SELECT contact_phone, reason, source_message, opted_out_at FROM opt_outs ORDER BY opted_out_at DESC").fetchall()
         if opt_rows:
             st.dataframe(
@@ -2329,14 +2329,14 @@ with tab3:
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "contact_phone": "Nomor Kontak",
-                    "reason": "Alasan Supresi",
-                    "source_message": "Pesan Terakhir Lead",
-                    "opted_out_at": "Waktu Opt-Out"
+                    "contact_phone": "Contact Phone",
+                    "reason": "Suppression Reason",
+                    "source_message": "Last Lead Message",
+                    "opted_out_at": "Opt-Out Date"
                 }
             )
         else:
-            st.caption("Belum ada kontak yang meminta opt-out.")
+            st.caption("No contacts have requested opt-out yet.")
 
 
 # ================= TAB 4: RAW DATA LOG =================
@@ -2346,18 +2346,18 @@ with tab4:
             r.id AS ID,
             r.platform AS Platform,
             r.campaign_id AS Campaign,
-            COALESCE(NULLIF(r.author_name, ''), 'Anonim / Publik') AS Pemosting,
+            COALESCE(NULLIF(r.author_name, ''), 'Anonymous / Public') AS Poster,
             (SELECT l.contact_phone FROM listings l WHERE l.raw_item_id = r.id AND l.contact_phone IS NOT NULL LIMIT 1) AS Listing_Phone,
-            r.raw_text AS Teks_Original,
+            r.raw_text AS Original_Text,
             r.url AS URL,
-            r.fetched_at AS Waktu_Scrape,
-            r.processed AS Diproses
+            r.fetched_at AS Scraped_At,
+            r.processed AS Processed
         FROM raw_items r
         ORDER BY r.id DESC LIMIT 200
     """, conn)
 
     if df_raw.empty:
-        st.caption("Data log mentah kosong.")
+        st.caption("Raw scraping log is currently empty.")
     else:
         # Ekstraksi dan format nomor kontak faktual dari data listing atau teks postingan mentah
         def _get_raw_contact(row):
@@ -2366,7 +2366,7 @@ with tab4:
             if pd.notna(c) and str(c).strip() and str(c).strip() != "-":
                 raw_c = str(c).strip()
             else:
-                text = str(row.get("Teks_Original", ""))
+                text = str(row.get("Original_Text", ""))
                 matches = MOBILE_RE.findall(text)
                 raw_c = matches[0].strip() if matches else None
 
@@ -2390,10 +2390,10 @@ with tab4:
                     return f"{digits[:4]}-{digits[4:8]}-{digits[8:]}"
             return raw_c or "-"
 
-        df_raw["Kontak"] = df_raw.apply(_get_raw_contact, axis=1)
+        df_raw["Contact"] = df_raw.apply(_get_raw_contact, axis=1)
         df_raw = df_raw.drop(columns=["Listing_Phone"])
 
-        cols_order = ["ID", "Platform", "Pemosting", "Kontak", "Campaign", "URL", "Teks_Original", "Waktu_Scrape", "Diproses"]
+        cols_order = ["ID", "Platform", "Poster", "Contact", "Campaign", "URL", "Original_Text", "Scraped_At", "Processed"]
         df_raw = df_raw[[c for c in cols_order if c in df_raw.columns]]
 
         csv_raw = df_raw.to_csv(index=False).encode("utf-8")
@@ -2408,48 +2408,48 @@ with tab4:
             hide_index=True,
             column_config={
                 "ID": st.column_config.NumberColumn("#", width="small"),
-                "Platform": st.column_config.TextColumn("Sumber", width="small"),
-                "Pemosting": st.column_config.TextColumn("Pemosting", width="medium"),
-                "Kontak": st.column_config.TextColumn("Kontak / No. HP", width="medium"),
+                "Platform": st.column_config.TextColumn("Source", width="small"),
+                "Poster": st.column_config.TextColumn("Poster / Author", width="medium"),
+                "Contact": st.column_config.TextColumn("Contact / Phone", width="medium"),
                 "Campaign": st.column_config.TextColumn("Campaign", width="medium"),
-                "URL": st.column_config.LinkColumn("Tautan Sumber", display_text="Buka Tautan", width="medium"),
-                "Teks_Original": st.column_config.TextColumn("Teks Postingan Asli", width="large"),
-                "Waktu_Scrape": st.column_config.TextColumn("Waktu Scrape", width="small"),
-                "Diproses": st.column_config.CheckboxColumn("Diproses"),
+                "URL": st.column_config.LinkColumn("Source URL", display_text="Open Link", width="medium"),
+                "Original_Text": st.column_config.TextColumn("Original Post Text", width="large"),
+                "Scraped_At": st.column_config.TextColumn("Scraped At", width="small"),
+                "Processed": st.column_config.CheckboxColumn("Processed"),
             },
         )
 
 
 # ================= TAB 5: RIWAYAT KAMPANYE & RUN LOG =================
 with tab5:
-    st.markdown("##### Riwayat Kampanye Pencarian")
+    st.markdown("##### Search Campaign History")
     try:
         campaigns = list_campaigns(conn)
         if campaigns:
             df_camp = pd.DataFrame(
                 [(c["id"], c["goal"], c["status"], c["created_at"]) for c in campaigns],
-                columns=["ID", "Tujuan", "Status", "Dibuat"],
+                columns=["ID", "Goal", "Status", "Created At"],
             )
             st.dataframe(df_camp, use_container_width=True, hide_index=True)
         else:
-            st.caption("Belum ada riwayat kampanye.")
+            st.caption("No campaign history found.")
     except Exception:
-        st.caption("Belum ada riwayat kampanye.")
+        st.caption("No campaign history found.")
 
     st.write("")
-    st.markdown("##### Log Eksekusi Pipeline (Apify & AI Runs)")
+    st.markdown("##### Pipeline Execution Logs (Apify & AI Runs)")
     try:
         df_runs = pd.read_sql_query("""
             SELECT
                 id AS Run_ID,
                 campaign_id AS Campaign,
-                step AS Tahap,
+                step AS Step,
                 platform AS Platform,
                 status AS Status,
-                items_found AS Item_Ditemukan,
-                started_at AS Waktu_Mulai,
-                finished_at AS Waktu_Selesai,
-                error AS Catatan_Error
+                items_found AS Items_Found,
+                started_at AS Started_At,
+                finished_at AS Finished_At,
+                error AS Error_Details
             FROM runs
             ORDER BY id DESC LIMIT 50
         """, conn)
@@ -2462,16 +2462,16 @@ with tab5:
                 column_config={
                     "Run_ID": st.column_config.NumberColumn("#", width="small"),
                     "Campaign": st.column_config.TextColumn("Campaign", width="medium"),
-                    "Tahap": st.column_config.TextColumn("Tahap", width="small"),
+                    "Step": st.column_config.TextColumn("Step", width="small"),
                     "Platform": st.column_config.TextColumn("Platform", width="small"),
                     "Status": st.column_config.TextColumn("Status", width="small"),
-                    "Item_Ditemukan": st.column_config.NumberColumn("Item Ditemukan", width="small"),
-                    "Waktu_Mulai": st.column_config.TextColumn("Mulai", width="medium"),
-                    "Waktu_Selesai": st.column_config.TextColumn("Selesai", width="medium"),
-                    "Catatan_Error": st.column_config.TextColumn("Keterangan", width="large"),
+                    "Items_Found": st.column_config.NumberColumn("Items Found", width="small"),
+                    "Started_At": st.column_config.TextColumn("Started At", width="medium"),
+                    "Finished_At": st.column_config.TextColumn("Finished At", width="medium"),
+                    "Error_Details": st.column_config.TextColumn("Error / Details", width="large"),
                 }
             )
         else:
-            st.caption("Belum ada log eksekusi pipeline.")
+            st.caption("No pipeline execution logs found.")
     except Exception as e:
-        st.caption(f"Gagal memuat log runs: {e}")
+        st.caption(f"Failed to load run logs: {e}")
