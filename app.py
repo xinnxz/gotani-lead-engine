@@ -41,6 +41,10 @@ from agent.sales_agent import (
     build_conversations_export_dataframe,
 )
 from agent.cadence import get_due_followups, generate_followup_message, advance_followup, calculate_due_date
+from agent.ui_assets import (
+    icon_svg, logo_wordmark_svg, logo_mark_svg, illustration_farm_svg,
+    render_top_navbar, render_hero_banner, render_kpi_card
+)
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
@@ -52,6 +56,421 @@ st.set_page_config(
 # ================= CUSTOM CSS: APIFY CONSOLE DESIGN SYSTEM =================
 st.markdown("""
 <style>
+    /* ============================================================
+       GOTANI DESIGN SYSTEM (tokens.css + Modern Green Theme)
+       ============================================================ */
+    :root {
+        --gt-green-950: #073B2B;
+        --gt-green-900: #075B40;
+        --gt-green-800: #087653;
+        --gt-green-700: #0B8F61;
+        --gt-green-600: #16A765;
+        --gt-green-100: #DDF5E9;
+        --gt-green-50: #F1FAF5;
+        --gt-ink: #14231F;
+        --gt-muted: #66736F;
+        --gt-border: #E3EAE6;
+        --gt-surface: #FFFFFF;
+        --gt-canvas: #F6F9F7;
+        --gt-blue: #2687C9;
+        --gt-amber: #E6A008;
+        --gt-red: #D94A4A;
+        --gt-violet: #7863D8;
+        --gt-radius-sm: 8px;
+        --gt-radius-md: 12px;
+        --gt-radius-lg: 18px;
+        --gt-shadow-card: 0 8px 28px rgba(17, 55, 39, .055);
+    }
+
+    /* Base Canvas & Typography */
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        color: #14231F;
+    }
+
+    .stApp {
+        background-color: #F6F9F7 !important;
+    }
+
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+    }
+
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 2.5rem !important;
+        max-width: 96% !important;
+    }
+
+    /* Topbar */
+    .gt-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 20px;
+        background: #FFFFFF;
+        border: 1px solid #E3EAE6;
+        border-radius: 12px;
+        margin-bottom: 16px;
+        box-shadow: 0 2px 8px rgba(17, 55, 39, 0.03);
+    }
+    .gt-topbar-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .gt-topbar-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .gt-deploy-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #075B40 !important;
+        color: #FFFFFF !important;
+        text-decoration: none !important;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 7px 16px;
+        border-radius: 20px;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 6px rgba(7, 91, 64, 0.25);
+    }
+    .gt-deploy-btn:hover {
+        background: #0B8F61 !important;
+        transform: translateY(-1px);
+    }
+
+    /* Sidebar Customization */
+    section[data-testid="stSidebar"] {
+        background-color: #FFFFFF !important;
+        border-right: 1px solid #E3EAE6 !important;
+    }
+    .gt-sidebar-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 14px;
+    }
+    .gt-sidebar-nav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none !important;
+    }
+    .gt-sidebar-nav-item.active {
+        background-color: #DDF5E9;
+        color: #075B40 !important;
+    }
+    .gt-sidebar-nav-item.inactive {
+        color: #66736F !important;
+    }
+
+    /* Buttons */
+    button[kind="primary"] {
+        background-color: #075B40 !important;
+        color: #ffffff !important;
+        border: 1px solid #075B40 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        box-shadow: 0 2px 6px rgba(7, 91, 64, 0.2) !important;
+    }
+    button[kind="primary"]:hover {
+        background-color: #0B8F61 !important;
+        border-color: #0B8F61 !important;
+    }
+    button[kind="secondary"] {
+        background-color: #ffffff !important;
+        color: #14231F !important;
+        border: 1px solid #E3EAE6 !important;
+        border-radius: 8px !important;
+        font-weight: 500 !important;
+    }
+    button[kind="secondary"]:hover {
+        background-color: #F1FAF5 !important;
+        border-color: #0B8F61 !important;
+        color: #075B40 !important;
+    }
+
+    /* Hero Banner Card */
+    .gt-hero-card {
+        background: #FFFFFF;
+        border: 1px solid #E3EAE6;
+        border-radius: 16px;
+        box-shadow: 0 8px 28px rgba(17, 55, 39, .055);
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    .gt-hero-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 22px 28px 14px 28px;
+        background: linear-gradient(135deg, #FFFFFF 0%, #F4FBF8 100%);
+        position: relative;
+        min-height: 130px;
+    }
+    .gt-hero-text {
+        flex: 1;
+        z-index: 2;
+    }
+    .gt-hero-title {
+        font-size: 21px;
+        font-weight: 700;
+        color: #14231F;
+        margin: 0 0 6px 0;
+        letter-spacing: -0.3px;
+    }
+    .gt-hero-subtitle {
+        font-size: 13px;
+        color: #66736F;
+        margin: 0;
+        line-height: 1.5;
+    }
+    .gt-hero-illustration {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        top: 0;
+        width: 360px;
+        overflow: hidden;
+        pointer-events: none;
+    }
+    .gt-hero-illustration svg {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .gt-hero-statusbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 22px;
+        background: #FAFCFB;
+        border-top: 1px solid #E3EAE6;
+        font-size: 12px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .gt-hero-status-left {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+    .gt-pill-succeeded {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: #DDF5E9;
+        color: #075B40;
+        font-weight: 600;
+        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: 12px;
+    }
+    .gt-status-badge-title {
+        font-weight: 700;
+        color: #14231F;
+    }
+    .gt-status-meta {
+        color: #66736F;
+        font-size: 12px;
+    }
+    .gt-status-meta b {
+        color: #14231F;
+    }
+    .gt-hero-status-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .gt-pulse-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #16A765;
+        box-shadow: 0 0 0 3px rgba(22, 167, 101, 0.2);
+    }
+    .gt-status-operational {
+        font-size: 12px;
+        font-weight: 600;
+        color: #0B8F61;
+    }
+
+    /* 5 KPI Metric Cards Grid */
+    .gt-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    @media (max-width: 900px) {
+        .gt-kpi-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    .gt-kpi-card {
+        border-radius: 12px;
+        padding: 14px 16px;
+        border: 1px solid;
+        box-shadow: 0 4px 14px rgba(17, 55, 39, 0.035);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .gt-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(17, 55, 39, 0.07);
+    }
+    .gt-kpi-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+    .gt-kpi-icon-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .gt-kpi-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #14231F;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .gt-kpi-info-btn {
+        opacity: 0.6;
+    }
+    .gt-kpi-value {
+        font-size: 26px;
+        font-weight: 700;
+        color: #14231F;
+        line-height: 1.1;
+        letter-spacing: -0.5px;
+    }
+
+    /* Tabs Styling */
+    div[data-baseweb="tab-list"] {
+        gap: 8px;
+        background: transparent !important;
+        border-bottom: 1px solid #E3EAE6 !important;
+        padding-bottom: 4px;
+        margin-bottom: 16px;
+    }
+    div[data-baseweb="tab"] {
+        background-color: transparent !important;
+        border: none !important;
+        border-radius: 8px 8px 0 0 !important;
+        padding: 8px 16px !important;
+        color: #66736F !important;
+        font-weight: 500 !important;
+        font-size: 13px !important;
+    }
+    div[data-baseweb="tab"]:hover {
+        color: #075B40 !important;
+        background-color: #F1FAF5 !important;
+    }
+    div[data-baseweb="tab"][aria-selected="true"] {
+        color: #075B40 !important;
+        font-weight: 700 !important;
+        border-bottom: 2px solid #075B40 !important;
+        background-color: #F1FAF5 !important;
+    }
+    div[data-baseweb="tab-highlight"] {
+        background-color: #075B40 !important;
+    }
+
+    /* Slider styling */
+    div[data-baseweb="slider"] div[role="slider"] {
+        background-color: #075B40 !important;
+        border-color: #075B40 !important;
+    }
+    div[data-baseweb="slider"] div[data-testid="stSliderTickBar"] {
+        background-color: #075B40 !important;
+    }
+    div[data-baseweb="slider"] div[style*="background-color: rgb(255, 75, 75)"],
+    div[data-baseweb="slider"] div[style*="background-color: #ff4b4b"],
+    div[data-baseweb="slider"] div[style*="background-color: rgb(2, 132, 199)"] {
+        background-color: #075B40 !important;
+    }
+
+    /* Custom Review Status Pills */
+    .gt-review-stat-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .gt-review-stat-approved {
+        background-color: #DDF5E9;
+        color: #075B40;
+        border: 1px solid #BBF7D0;
+    }
+    .gt-review-stat-rejected {
+        background-color: #FEF2F2;
+        color: #D94A4A;
+        border: 1px solid #FECACA;
+    }
+    .gt-review-stat-pending {
+        background-color: #FFFBEB;
+        color: #B45309;
+        border: 1px solid #FDE68A;
+    }
+
+    /* Progress Verifikasi Bar */
+    .gt-progress-container {
+        background: #FFFFFF;
+        border: 1px solid #E3EAE6;
+        border-radius: 10px;
+        padding: 12px 18px;
+        margin-top: 12px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    .gt-progress-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #14231F;
+        white-space: nowrap;
+    }
+    .gt-progress-track {
+        flex: 1;
+        height: 10px;
+        background: #F1FAF5;
+        border-radius: 6px;
+        overflow: hidden;
+        position: relative;
+        border: 1px solid #E3EAE6;
+    }
+    .gt-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #FACC15 0%, #16A765 100%);
+        border-radius: 6px;
+        transition: width 0.3s ease;
+    }
+    .gt-progress-pct {
+        font-size: 13px;
+        font-weight: 700;
+        color: #075B40;
+        white-space: nowrap;
+    }
+
     /* Google Fonts Inter */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -706,20 +1125,32 @@ gateway = LLMGateway(conn)
 
 # ================= SIDEBAR (APIFY CONSOLE STYLE) =================
 with st.sidebar:
-    # User / Organization Chip (seperti di screenshot Apify)
-    st.markdown("""
+    # Navigation Item Rail (Lead Agent & Deploy)
+    grid_ic = icon_svg("grid", size=15, color="#075B40")
+    rocket_ic = icon_svg("rocket", size=15, color="#66736F")
+    st.markdown(f"""
+        <div class="gt-sidebar-nav">
+            <div class="gt-sidebar-nav-item active">
+                {grid_ic}
+                <span>Lead Agent</span>
+            </div>
+            <a href="https://streamlit.io/cloud" target="_blank" class="gt-sidebar-nav-item inactive" style="text-decoration:none;">
+                {rocket_ic}
+                <span>Deploy</span>
+            </a>
+        </div>
         <div class="user-chip">
             <div class="user-avatar">GT</div>
             <div>
-                <div style="font-size:12px; font-weight:600; color:#101828;">GoTani Lead Agent</div>
-                <div style="font-size:11px; color:#64748b;">Production Console</div>
+                <div style="font-size:12px; font-weight:700; color:#14231F;">GoTani Lead Agent</div>
+                <div style="font-size:11px; color:#66736F;">Production Console</div>
             </div>
         </div>
     """, unsafe_allow_html=True)
 
     # --- Section: Quick Start ---
     st.markdown("<div style='font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;'>Aksi Cepat</div>", unsafe_allow_html=True)
-    if st.button("Muat Demo Komprehensif", use_container_width=True):
+    if st.button("▷ Muat Demo Komprehensif", use_container_width=True):
         with st.spinner("Memuat dataset demo..."):
             subprocess.run([sys.executable, "seed_demo.py"], cwd=str(Path(__file__).parent))
             st.session_state["notify_success"] = "Dataset demo berhasil dimuat! Data petani, pembeli, dan smart pool siap diuji."
@@ -728,7 +1159,7 @@ with st.sidebar:
 
     c_btn2, c_btn3 = st.columns(2)
     with c_btn2:
-        if st.button("Hapus Semua Data", use_container_width=True):
+        if st.button("🗑 Hapus Semua Data", use_container_width=True):
             tables = ["messages", "conversations", "match_items", "matches", "listings", "raw_items", "runs"]
             for t in tables:
                 try:
@@ -746,7 +1177,7 @@ with st.sidebar:
             st.toast("Database berhasil dikosongkan!", icon="🗑️")
             st.rerun()
     with c_btn3:
-        if st.button("Anti-Duplikat", use_container_width=True):
+        if st.button("🛡 Anti-Duplikat", use_container_width=True):
             with st.spinner("Memeriksa duplikasi..."):
                 d_res = deduplicate_database(conn)
                 st.session_state["notify_info"] = f"Deduplikasi selesai: {d_res['duplicates_marked']} entri duplikat berhasil disembunyikan."
@@ -871,7 +1302,7 @@ with st.sidebar:
         )
 
     # 5. Tombol Pencarian Marketplace
-    if st.button("Cari Prospek", type="primary", use_container_width=True):
+    if st.button("🔍 Cari Prospek", type="primary", use_container_width=True):
         cid = new_campaign_id(conn)
         goal_val = "find_supply" if "Petani" in goal_choice else "find_demand"
         target_entity_val = "petani / kelompok tani" if goal_val == "find_supply" else "toko buah / distributor / pengepul"
@@ -1009,21 +1440,12 @@ with st.sidebar:
         pass
 
 
-# ================= MAIN AREA: CONSOLE VIEW =================
+# ================= MAIN AREA: GOTANI MODERN DASHBOARD =================
 
-# 1. Breadcrumb Bar (Apify Console style)
-st.markdown("""
-    <div class="apify-breadcrumb">
-        <span>GoTani Console</span>
-        <span>/</span>
-        <span>Actors</span>
-        <span>/</span>
-        <span style="color:#0f172a; font-weight:600;">Google Search Results & FB Lead Engine</span>
-        <span class="apify-pill apify-pill-single" style="font-size:11px;">Actor</span>
-    </div>
-""", unsafe_allow_html=True)
+# 1. Top Navbar (Logo GoTani Wordmark + Deploy Button)
+st.markdown(render_top_navbar(), unsafe_allow_html=True)
 
-# 2. Status Bar Strip (Sesuai Screenshot 1 & 3 Apify)
+# 2. Database Counts & Hero Welcome Banner
 try:
     total_raw = conn.execute("SELECT COUNT(*) FROM raw_items").fetchone()[0]
     total_leads = conn.execute("SELECT COUNT(*) FROM listings WHERE duplicate_of IS NULL").fetchone()[0]
@@ -1039,25 +1461,18 @@ except Exception:
 
 last_run_time = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-st.markdown(f"""
-    <div class="apify-status-bar">
-        <div class="apify-status-left">
-            <span class="apify-pill apify-pill-success">
-                Succeeded
-            </span>
-            <span style="font-size:13px; font-weight:600; color:#101828;">Dataset Siap</span>
-            <span class="apify-meta-item">Total Posts: <b>{total_raw}</b></span>
-            <span class="apify-meta-item">Valid Leads: <b>{total_leads}</b></span>
-            <span class="apify-meta-item">Matches: <b>{total_matches}</b></span>
-            <span class="apify-meta-item">CRM Convs: <b>{total_convs}</b></span>
-            <span class="apify-meta-item">Biaya: <b>${usage['cost_usd']:.3f}</b></span>
-            <span class="apify-meta-item">Waktu: <b>{last_run_time}</b></span>
-        </div>
-        <div>
-            <span style="font-size:12px; color:#0284c7; font-weight:600;">Status Operasional Normal</span>
-        </div>
-    </div>
-""", unsafe_allow_html=True)
+# Render Hero Banner dengan Ilustrasi Lanskap Pertanian & Status Bar Terpadu
+st.markdown(
+    render_hero_banner(
+        total_raw=total_raw,
+        total_leads=total_leads,
+        total_matches=total_matches,
+        total_convs=total_convs,
+        cost_usd=usage['cost_usd'],
+        last_run_time=last_run_time,
+    ),
+    unsafe_allow_html=True
+)
 
 # Notifikasi Aksi (Dismissable dengan tombol ✕ di dalam area alert)
 if st.session_state.get("notify_success"):
@@ -1124,13 +1539,17 @@ if st.session_state.get("notify_match_warning"):
             del st.session_state["notify_match_warning"]
             st.rerun()
 
-# 3. Metric Summary Cards (Apify Dashboard Widget Style)
-col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
-col_m1.metric("Raw Posts", f"{total_raw:,}", help="Jumlah postingan yang tersimpan dari penelusuran Google Search Scraper.")
-col_m2.metric("Valid Leads", f"{total_leads:,}", help="Jumlah data lead yang berhasil diekstrak dan dinormalisasi.")
-col_m3.metric("High Conf", f"{high_conf:,}", help="Prospek terverifikasi dengan tingkat keyakinan data ≥ 80%.")
-col_m4.metric("Matches", f"{total_matches:,}", help="Jumlah rekomendasi kecocokan pasokan dan permintaan yang teridentifikasi.")
-col_m5.metric("Sales CRM", f"{total_convs:,}", help="Jumlah sesi percakapan prospek aktif di Sales CRM Fase 3.")
+# 3. 5 KPI Metric Cards (GoTani Pastel Tint Cards with SVG Icons)
+kpi_grid_html = f"""
+<div class="gt-kpi-grid">
+    {render_kpi_card("Raw Posts", f"{total_raw:,}", "file", "mint", "Jumlah postingan yang tersimpan dari penelusuran Google Search Scraper.")}
+    {render_kpi_card("Valid Leads", f"{total_leads:,}", "user", "green", "Jumlah data lead yang berhasil diekstrak dan dinormalisasi.")}
+    {render_kpi_card("High Conf", f"{high_conf:,}", "star", "amber", "Prospek terverifikasi dengan tingkat keyakinan data ≥ 80%.")}
+    {render_kpi_card("Matches", f"{total_matches:,}", "layers", "purple", "Jumlah rekomendasi kecocokan pasokan dan permintaan yang teridentifikasi.")}
+    {render_kpi_card("Sales CRM", f"{total_convs:,}", "chart", "blue", "Jumlah sesi percakapan prospek aktif di Sales CRM Fase 3.")}
+</div>
+"""
+st.markdown(kpi_grid_html, unsafe_allow_html=True)
 
 st.write("") # Spacer
 
@@ -1418,17 +1837,24 @@ with tab1:
         # MODE 1: KARTU REVIEW (FOKUS SELEKSI CEPAT)
         # ----------------------------------------------------
         if view_mode == "Kartu Review (Fokus Seleksi)":
-            # Statistik ringkas
+            # Statistik ringkas dengan ikon SVG GoTani
+            chk_ic = icon_svg("check-circle", size=13, color="#075B40")
+            x_ic = icon_svg("x-circle", size=13, color="#D94A4A")
+            clk_ic = icon_svg("clock", size=13, color="#B45309")
+            
             st.markdown(f"""
-                <div style="display:flex; gap:12px; margin:10px 0 12px 0;">
-                    <div style="padding:6px 14px; border-radius:6px; background:#f0fdf4; border:1px solid #bbf7d0;">
-                        <span style="font-size:12px; color:#15803d; font-weight:600;">Approved: {approved_count}</span>
+                <div style="display:flex; gap:12px; margin:10px 0 14px 0;">
+                    <div class="gt-review-stat-pill gt-review-stat-approved">
+                        {chk_ic}
+                        <span>Approved: {approved_count}</span>
                     </div>
-                    <div style="padding:6px 14px; border-radius:6px; background:#fef2f2; border:1px solid #fecaca;">
-                        <span style="font-size:12px; color:#dc2626; font-weight:600;">Rejected: {rejected_count}</span>
+                    <div class="gt-review-stat-pill gt-review-stat-rejected">
+                        {x_ic}
+                        <span>Rejected: {rejected_count}</span>
                     </div>
-                    <div style="padding:6px 14px; border-radius:6px; background:#fffbeb; border:1px solid #fde68a;">
-                        <span style="font-size:12px; color:#d97706; font-weight:600;">Pending: {pending_count}</span>
+                    <div class="gt-review-stat-pill gt-review-stat-pending">
+                        {clk_ic}
+                        <span>Pending: {pending_count}</span>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
@@ -1436,7 +1862,7 @@ with tab1:
             # Batch action bar
             ba_c1, ba_c2, ba_c3 = st.columns([1.5, 1.5, 2])
             with ba_c1:
-                if st.button("Auto-Approve (Confidence >= 80%)", use_container_width=True, help="Setujui otomatis semua lead pending dengan confidence >= 80%"):
+                if st.button("🪄 Auto-Approve (Confidence >= 80%)", use_container_width=True, help="Setujui otomatis semua lead pending dengan confidence >= 80%"):
                     high_conf_ids = pending_leads[pending_leads["Conf_Score"] >= 80]["id"].tolist()
                     count = 0
                     for lid in high_conf_ids:
@@ -1449,7 +1875,7 @@ with tab1:
                     st.rerun()
             with ba_c2:
                 if pending_count > 0:
-                    if st.button("Reject Semua Skor 0", use_container_width=True, help="Tolak otomatis semua lead dengan skor relevansi 0"):
+                    if st.button("✕ Reject Semua Skor 0", use_container_width=True, help="Tolak otomatis semua lead dengan skor relevansi 0"):
                         zero_ids = pending_leads[pending_leads["Rel_Score"] == 0]["id"].tolist()
                         count = 0
                         for lid in zero_ids:
@@ -1475,8 +1901,23 @@ with tab1:
                 # Progress review
                 total_reviewable = len(df_leads)
                 reviewed = approved_count + rejected_count
-                if total_reviewable > 0:
-                    st.progress(reviewed / total_reviewable, text=f"Progress review: {reviewed}/{total_reviewable} prospek ({pending_count} pending tersisa)")
+                pct_review = (reviewed / total_reviewable * 100.0) if total_reviewable > 0 else 0.0
+                avg_conf = float(df_leads["Conf_Score"].mean()) if not df_leads.empty else 0.0
+                
+                tgt_ic = icon_svg("target", size=17, color="#0B8F61")
+                st.caption(f"Progress review: {reviewed}/{total_reviewable} prospek ({pending_count} pending tersisa)")
+                st.markdown(f"""
+                    <div class="gt-progress-container">
+                        <div class="gt-progress-label">
+                            {tgt_ic}
+                            <span>Progress Verifikasi</span>
+                        </div>
+                        <div class="gt-progress-track">
+                            <div class="gt-progress-fill" style="width: {min(100.0, max(0.0, pct_review)):.1f}%;"></div>
+                        </div>
+                        <div class="gt-progress-pct">{pct_review:.1f}% &nbsp;|&nbsp; {avg_conf:.0f}%</div>
+                    </div>
+                """, unsafe_allow_html=True)
 
                 rel_pct = current_lead.get("Rel_Score", 0)
                 conf_pct = current_lead.get("Conf_Score", 0)

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 64" fill="none">
+  <g transform="translate(2 2) scale(.92)">
+    <path d="M10 42C10 22 27 8 53 8C53 34 39 53 19 53C14 53 10 49 10 42Z" fill="#16A765"/>
+    <path d="M14 49C25 36 35 26 50 15" stroke="#E8FFF2" stroke-width="4" stroke-linecap="round"/>
+    <path d="M27 31C25 24 20 20 14 19" stroke="#E8FFF2" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <text x="66" y="43" font-family="Inter, Arial, sans-serif" font-size="31" font-weight="700" letter-spacing="-1.2" fill="#10251D">GoTani</text>
+</svg>
